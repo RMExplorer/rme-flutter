@@ -15,12 +15,30 @@ class InstructionsPage extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Text(
-                  'General Search Page',
+                  'Search Page',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 10),
                 const Text(
-                  'Use the dropdown to search for an Inchikey, Compound, IUPAC or any Keyword. There is a check box next to the search dropdown that lets you pick whether you want to add the selected substance to the table or if you want the selected substance to replace everything that is in the table. You can then select a compound from the table shown in order to display its properties on the Properties tab. You can also select a substance from the table and see its spectral data (if it has any) on the Spectral Data tab. You can clear all your selection by clicking the \'Unselect All Rows\' button located at the top right of the page. You can save the substances you have loaded in the table by clicking the \'Save Table Substances\' button. This will give you a .csv file. If you want to view the same table later on, you can load it by clicking the \'Load Saved Substances\' button and uploading the .csv file.',
+                  'This page allows you to search for specific analytes in the CRM database. CRMs containing the analyte will show up in the dropdown. You can select a CRM from the dropdown to view its details.\n\nIf the CRM has analytes listed, there will be a table below the dropdown that shows the analytes. Selecting an analyte will add it to the Polarity-MW plot page. You can view the properties and spectrum of the first selected analyte by clicking the buttons below the table.',
+                  textAlign: TextAlign.justify,
+                  style: TextStyle(fontSize: 16, height: 1.5),
+                ),
+                const SizedBox(height: 10),
+                const Divider(
+                  height: 40,
+                  thickness: 1,
+                  color: Colors.grey,
+                  indent: 15, // Left margin
+                  endIndent: 15, // Right margin
+                ),
+                const Text(
+                  'Polarity-MW Plot Page',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'This page displays the Polarity-MW plot for the selected analytes. Analytes from multiple CRMs can be selected, and the plot will update accordingly. Below the plot there is a table, where the analytes can be sorted by polarity, molecular weight, or name.',
                   textAlign: TextAlign.justify,
                   style: TextStyle(fontSize: 16, height: 1.5),
                 ),

@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_rme/models/analyte.dart';
 import 'package:flutter_rme/models/pubchem_data.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 import '../global_state.dart';
-import '../services/pubchem_service.dart';
 
 class PolarityMwPlotPage extends StatefulWidget {
   const PolarityMwPlotPage({super.key});

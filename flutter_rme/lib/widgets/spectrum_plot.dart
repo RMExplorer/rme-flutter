@@ -10,10 +10,10 @@ class SpectrumPlot extends StatefulWidget {
   final bool isMassSpectrum;
 
   const SpectrumPlot({
-    Key? key,
+    super.key,
     required this.csvData,
     this.isMassSpectrum = true,
-  }) : super(key: key);
+  });
 
   @override
   _SpectrumPlotState createState() => _SpectrumPlotState();
@@ -25,7 +25,7 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
   double _minXValue = 0;
   double _maxXValue = 0;
   List<FlSpot> _peaks = [];
-  Map<String, String> _metadata = {};
+  final Map<String, String> _metadata = {};
 
   @override
   void initState() {
@@ -237,18 +237,18 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
                               _maxXValue - _minXValue,
                             ),
                             getDrawingHorizontalLine: (value) => FlLine(
-                              color: Colors.grey.withOpacity(0.2),
+                              color: Colors.grey.withValues(),
                               strokeWidth: 1,
                             ),
                             getDrawingVerticalLine: (value) => FlLine(
-                              color: Colors.grey.withOpacity(0.2),
+                              color: Colors.grey.withValues(),
                               strokeWidth: 1,
                             ),
                           ),
                           borderData: FlBorderData(
                             show: true,
                             border: Border.all(
-                              color: Colors.grey.withOpacity(0.5),
+                              color: Colors.grey.withValues(),
                               width: 1,
                             ),
                           ),
