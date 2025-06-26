@@ -17,6 +17,25 @@ class _PolarityMwPlotPageState extends State<PolarityMwPlotPage> {
   bool _sortAscending = true;
   int? _sortColumnIndex;
 
+  // Helper widget for creating quadrant labels to avoid repeating code
+  Widget _buildQuadrantLabel(String text, {required Color backgroundColor}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final globalState = Provider.of<GlobalState>(context);
@@ -76,106 +95,158 @@ class _PolarityMwPlotPageState extends State<PolarityMwPlotPage> {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.all(16.0),
-            child: ScatterChart(
-              ScatterChartData(
-                scatterSpots: spots.asMap().entries.map((entry) {
-                  final spot = entry.value;
-                  return ScatterSpot(spot.x, spot.y);
-                }).toList(),
-                minX: -10,
-                maxX: 10,
-                minY: 0,
-                maxY: 2500,
-                borderData: FlBorderData(show: true),
-                scatterTouchData: ScatterTouchData(
-                  enabled: true,
-                  touchTooltipData: ScatterTouchTooltipData(
-                    getTooltipItems: (ScatterSpot touchedSpot) {
-                      // Find the index of the touched spot
-                      final index = spots.indexWhere(
-                        (spot) =>
-                            spot.x == touchedSpot.x && spot.y == touchedSpot.y,
-                      );
-
-                      // Get the name from validData using the index
-                      final name = index >= 0 && index < validData.length
-                          ? validData[index].name
-                          : '';
-
-                      return ScatterTooltipItem(
-                        name,
-                        textStyle: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                        bottomMargin: 6,
-                      );
-                    },
-                  ),
-                ),
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: true,
-                  drawHorizontalLine: true,
-                  horizontalInterval: 500, // Match with Y-axis titles interval
-                  verticalInterval: 2, // Match with X-axis titles interval
-                  getDrawingHorizontalLine: (value) =>
-                      FlLine(color: Colors.grey.withValues(), strokeWidth: 1),
-                  getDrawingVerticalLine: (value) =>
-                      FlLine(color: Colors.grey.withValues(), strokeWidth: 1),
-                ),
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 35,
-                      interval: 500,
-                      getTitlesWidget: (value, meta) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 4.0),
-                          child: Text(
-                            value.toInt().toString(),
-                            style: const TextStyle(fontSize: 10),
-                          ),
+            child: Stack( // <--- Wrap the chart and labels in a Stack
+              children: [
+                ScatterChart(
+                  ScatterChartData(
+                    scatterSpots: spots.asMap().entries.map((entry) {
+                      final spot = entry.value;
+                      return ScatterSpot(spot.x, spot.y);
+                    }).toList(),
+                    minX: -10,
+                    maxX: 10,
+                    minY: 0,
+                    maxY: 2500,
+                    borderData: FlBorderData(show: true),
+                    scatterTouchData: ScatterTouchData(
+                      enabled: true,
+                      touchTooltipData: ScatterTouchTooltipData(
+                        getTooltipItems: (ScatterSpot touchedSpot) {
+                          final index = spots.indexWhere(
+                            (spot) =>
+                                spot.x == touchedSpot.x && spot.y == touchedSpot.y,
+                          );
+                          final name = index >= 0 && index < validData.length
+                              ? validData[index].name
+                              : '';
+                          return ScatterTooltipItem(
+                            name,
+                            textStyle: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
+                            bottomMargin: 6,
+                          );
+                        },
+                      ),
+                    ),
+                    gridData: FlGridData(
+                      show: true,
+                      drawVerticalLine: true,
+                      drawHorizontalLine: true,
+                      horizontalInterval: 500,
+                      verticalInterval: 2,
+                      getDrawingHorizontalLine: (value) {
+                        // Check if the line is at y=500
+                        if (value == 500) {
+                          return const FlLine(color: Colors.red, strokeWidth: 2);
+                        }
+                        return FlLine(
+                          color: Colors.grey.withOpacity(0.5),
+                          strokeWidth: 1,
+                        );
+                      },
+                      getDrawingVerticalLine: (value) {
+                        // Check if the line is at x=-2
+                        if (value == -2) {
+                          return const FlLine(
+                            color: Colors.blueAccent,
+                            strokeWidth: 2,
+                          );
+                        }
+                        return FlLine(
+                          color: Colors.grey.withOpacity(0.5),
+                          strokeWidth: 1,
                         );
                       },
                     ),
-                    axisNameWidget: const Padding(
-                      padding: EdgeInsets.only(right: 8.0),
-                      child: Text(
-                        'Molecular Weight (g/mol)',
-                        style: TextStyle(fontSize: 12),
+                    titlesData: FlTitlesData(
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 35,
+                          interval: 500,
+                          getTitlesWidget: (value, meta) {
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 4.0),
+                              child: Text(
+                                value.toInt().toString(),
+                                style: const TextStyle(fontSize: 10),
+                              ),
+                            );
+                          },
+                        ),
+                        axisNameWidget: const Padding(
+                          padding: EdgeInsets.only(right: 8.0),
+                          child: Text(
+                            'Molecular Weight (g/mol)',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 40,
+                          interval: 2,
+                          getTitlesWidget: (value, meta) {
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 12.0),
+                              child: Text(
+                                value.toInt().toString(),
+                                style: const TextStyle(fontSize: 10),
+                              ),
+                            );
+                          },
+                        ),
+                        axisNameWidget: const Padding(
+                          padding: EdgeInsets.only(top: 0.0),
+                          child: Text('pKow', style: TextStyle(fontSize: 12)),
+                        ),
+                      ),
+                      rightTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      topTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
                       ),
                     ),
                   ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 40,
-                      interval: 2,
-                      getTitlesWidget: (value, meta) {
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 12.0),
-                          child: Text(
-                            value.toInt().toString(),
-                            style: const TextStyle(fontSize: 10),
-                          ),
-                        );
-                      },
-                    ),
-                    axisNameWidget: const Padding(
-                      padding: EdgeInsets.only(top: 0.0),
-                      child: Text('pKow', style: TextStyle(fontSize: 12)),
-                    ),
-                  ),
-                  rightTitles: AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  topTitles: AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
+                ),
+                // Positioned labels for each quadrant
+                Positioned(
+                  top: 20,
+                  left: 65,
+                  child: _buildQuadrantLabel(
+                    'Low Polarity\nHigh MW',
+                    backgroundColor: Colors.black.withOpacity(0.5),
                   ),
                 ),
-              ),
+                Positioned(
+                  top: 20,
+                  right: 20,
+                  child: _buildQuadrantLabel(
+                    'High Polarity\nHigh MW',
+                    backgroundColor: Colors.black.withOpacity(0.5),
+                  ),
+                ),
+                Positioned(
+                  bottom: 60,
+                  left: 65,
+                  child: _buildQuadrantLabel(
+                    'Low Polarity\nLow MW',
+                    backgroundColor: Colors.black.withOpacity(0.5),
+                  ),
+                ),
+                Positioned(
+                  bottom: 60,
+                  right: 20,
+                  child: _buildQuadrantLabel(
+                    'High Polarity\nLow MW',
+                    backgroundColor: Colors.black.withOpacity(0.5),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
