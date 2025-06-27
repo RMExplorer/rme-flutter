@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:csv/csv.dart';
 import 'package:flutter_rme/models/spectrum_point.dart';
+import 'package:url_launcher/url_launcher.dart'; // Import for launching URLs
 
 class SpectrumPlot extends StatefulWidget {
   final String csvData;
@@ -237,18 +238,18 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
                               _maxXValue - _minXValue,
                             ),
                             getDrawingHorizontalLine: (value) => FlLine(
-                              color: Colors.grey.withValues(),
+                              color: Colors.grey.withOpacity(0.3),
                               strokeWidth: 1,
                             ),
                             getDrawingVerticalLine: (value) => FlLine(
-                              color: Colors.grey.withValues(),
+                              color: Colors.grey.withOpacity(0.3),
                               strokeWidth: 1,
                             ),
                           ),
                           borderData: FlBorderData(
                             show: true,
                             border: Border.all(
-                              color: Colors.grey.withValues(),
+                              color: Colors.grey.withOpacity(0.3),
                               width: 1,
                             ),
                           ),
@@ -338,21 +339,62 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: importantMetadata.map((key) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2.0),
-            child: RichText(
-              text: TextSpan(
-                style: Theme.of(context).textTheme.bodyMedium,
-                children: [
-                  TextSpan(
-                    text: '$key: ',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+          if (key == 'DOI') {
+            final doiValue = _metadata[key];
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2.0),
+              child: GestureDetector(
+                onTap: () async {
+                  if (doiValue != null && doiValue.isNotEmpty) {
+                    final url = Uri.parse('https://doi.org/$doiValue');
+                    // Attempt to launch the URL. If it fails, show a SnackBar.
+                    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                      print('Could not launch $url with externalApplication mode.');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Could not open DOI link.')),
+                      );
+                    } else {
+                      print('Successfully launched $url');
+                    }
+                  }
+                },
+                child: RichText(
+                  text: TextSpan(
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    children: [
+                      TextSpan(
+                        text: '$key: ',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      TextSpan(
+                        text: doiValue,
+                        style: const TextStyle(
+                          color: Colors.blue,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ],
                   ),
-                  TextSpan(text: _metadata[key]),
-                ],
+                ),
               ),
-            ),
-          );
+            );
+          } else {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2.0),
+              child: RichText(
+                text: TextSpan(
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  children: [
+                    TextSpan(
+                      text: '$key: ',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    TextSpan(text: _metadata[key]),
+                  ],
+                ),
+              ),
+            );
+          }
         }).toList(),
       ),
     );
