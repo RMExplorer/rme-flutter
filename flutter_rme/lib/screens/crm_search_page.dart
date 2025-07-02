@@ -12,6 +12,7 @@ import '../services/crm_service.dart';
 import '../services/pubchem_service.dart';
 import '../widgets/analyte_table.dart';
 import '../global_state.dart';
+import '../models/pubchem_data.dart'; // Import PubChemData
 
 /// A StatefulWidget that provides a user interface for searching and
 /// interacting with Certified Reference Materials (CRMs).
@@ -45,16 +46,17 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
   /// Used to fetch lists of CRMs and their detailed information.
   final CrmService _crmService = CrmService();
 
+  /// Service for interacting with the PubChem data API.
+  /// Used to fetch compound information and synonyms.
+  final PubChemService _pubChemService = PubChemService();
+
   /// A list of [CrmItem] objects representing the CRMs fetched
   /// either initially or via a search query.
   List<CrmItem> _crmItems = [];
 
-  /// A list of CRM names extracted from [_crmItems], used to populate
-  /// the dropdown menu for CRM selection.
-  List<String> _crmNames = [];
-
-  /// The name of the currently selected CRM from the dropdown.
-  String? _selectedCrm;
+  /// The ID of the currently selected CRM from the dropdown.
+  /// This will be used as the unique value for the DropdownMenuItem.
+  String? _selectedCrmId;
 
   /// The detailed information ([CrmDetail]) for the currently selected CRM.
   /// This object contains the summary, DOI, publication date, and analyte data.
@@ -90,7 +92,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
   ///
   /// This method is called once when the widget initializes to populate
   /// the CRM dropdown with available CRMs. It manages the loading state,
-  /// error handling, and updates [_crmItems] and [_crmNames].
+  /// error handling, and updates [_crmItems] and [_selectedCrmId].
   Future<void> _loadInitialData() async {
     setState(() {
       _isLoading = true;
@@ -99,11 +101,21 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
     });
 
     try {
+      // Fetch initial data and ensure uniqueness of CrmItem objects
+      // by using a Set if CrmItem overrides == and hashCode.
+      // If CrmItem doesn't override them, Set will treat each instance as unique.
+      // However, the dropdown fix relies on unique IDs, which is handled below.
       _crmItems = await _crmService.loadInitialData();
-      _crmNames = _crmItems.map((item) => item.name).toSet().toList()..sort();
+      // Ensure _crmItems contains only unique CrmItem objects based on their ID
+      // This is important if the NRC API could return duplicates with different titles/summaries
+      // but the same ID, or if the logic for combining search results could introduce duplicates.
+      _crmItems = _crmItems.toSet().toList(); // Requires CrmItem to override == and hashCode (see crm_item.dart)
+
 
       setState(() {
         _initialLoadComplete = true;
+        // Clear selected CRM ID when initial data is loaded
+        _selectedCrmId = null;
       });
     } catch (e) {
       _handleError(e.toString());
@@ -117,27 +129,73 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
     }
   }
 
-  /// Searches for CRMs based on the provided [query].
+  /// Searches for CRMs based on the provided [query], incorporating synonym search
+  /// using PubChem.
   ///
-  /// This method is triggered when the user enters text in the search field
-  /// and presses the "Submit" button. It updates the [_crmItems] and
-  /// [_crmNames] with the search results. It also handles loading states
-  /// and displays messages if no results are found or if an error occurs.
+  /// This method first attempts to resolve the query to a canonical compound name
+  /// and its synonyms via PubChem. It then uses these terms to search the NRC
+  /// repository. If PubChem lookup fails, it falls back to a direct NRC search
+  /// with the original query.
+  ///
+  /// [query]: The search term entered by the user.
   Future<void> _searchCrm(String query) async {
     setState(() {
       _isLoading = true;
       _hasError = false;
       _errorMessage = null;
-      _selectedCrm = null; // Clear previous selection
+      _selectedCrmId = null; // Clear previous selection
       _selectedDetail = null; // Clear previous detail
     });
 
     try {
-      _crmItems = await _crmService.searchCrm(query);
-      _crmNames = _crmItems.map((item) => item.name).toSet().toList()..sort();
+      Set<String> searchTerms = {query}; // Start with the original query
+      PubChemData? pubChemResult;
 
-      if (_crmNames.isEmpty) {
-        _handleError('No results found', isWarning: true);
+      try {
+        // Attempt to get PubChem data for the query
+        pubChemResult = await _pubChemService.getCompoundData(query);
+        if (pubChemResult != null) {
+          searchTerms.add(pubChemResult.name); // Add canonical name
+          searchTerms.addAll(pubChemResult.synonyms); // Add synonyms
+        }
+      } catch (e) {
+        // If PubChem lookup fails (e.g., query not found in PubChem),
+        // we'll just proceed with the original query for the NRC search.
+        debugPrint('PubChem lookup failed for "$query": $e');
+      }
+
+      Set<CrmItem> combinedResults = {};
+      bool foundAnyNrcResults = false;
+
+      // Perform NRC search for each relevant term (original query, canonical name, synonyms)
+      for (String term in searchTerms) {
+        if (term.isEmpty) continue; // Skip empty terms
+        try {
+          final nrcResults = await _crmService.searchCrm(term);
+          combinedResults.addAll(nrcResults);
+          if (nrcResults.isNotEmpty) {
+            foundAnyNrcResults = true;
+          }
+        } catch (e) {
+          debugPrint('NRC search failed for term "$term": $e');
+          // Continue to the next term even if one NRC search fails.
+        }
+      }
+
+      _crmItems = combinedResults.toList();
+      // Ensure _crmItems contains only unique CrmItem objects based on their ID
+      _crmItems = _crmItems.toSet().toList(); // Requires CrmItem to override == and hashCode (see crm_item.dart)
+      _crmItems.sort((a, b) => a.name.compareTo(b.name)); // Sort by name for display
+
+      if (_crmItems.isEmpty) {
+        if (pubChemResult != null) {
+          _handleError('No CRMs found matching "$query" or its synonyms.', isWarning: true);
+        } else {
+          _handleError('No results found for "$query".', isWarning: true);
+        }
+      } else if (!foundAnyNrcResults && pubChemResult != null) {
+        // This case means PubChem found something, but NRC didn't return any CRMs for any of the terms.
+        _handleError('No CRMs found matching "$query" or its synonyms.', isWarning: true);
       }
     } catch (e) {
       _handleError(e.toString());
@@ -153,12 +211,12 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
 
   /// Fetches the detailed information ([CrmDetail]) for a selected CRM.
   ///
-  /// This method is called when a user selects a CRM name from the dropdown.
+  /// This method is called when a user selects a CRM from the dropdown.
   /// It retrieves the full CRM details using [CrmService.loadCrmDetail]
   /// and updates the [_selectedDetail] state variable.
   ///
-  /// [crmName]: The name of the CRM for which to load details.
-  Future<void> _loadCrmDetail(String crmName) async {
+  /// [crmId]: The ID of the CRM for which to load details.
+  Future<void> _loadCrmDetail(String crmId) async {
     setState(() {
       _isLoading = true;
       _hasError = false;
@@ -167,16 +225,16 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
     });
 
     try {
-      // Find the CrmItem corresponding to the selected name.
+      // Find the CrmItem corresponding to the selected ID.
       final crmItem = _crmItems.firstWhere(
-        (item) => item.name == crmName,
-        orElse: () => throw Exception('CRM not found'),
+        (item) => item.id == crmId,
+        orElse: () => throw Exception('CRM not found with ID: $crmId'),
       );
 
       final crmDetail = await _crmService.loadCrmDetail(crmItem);
 
       setState(() {
-        _selectedCrm = crmName;
+        _selectedCrmId = crmId;
         _selectedDetail = crmDetail;
       });
     } catch (e) {
@@ -307,18 +365,18 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                       ),
                     ),
                   // Dropdown to select a CRM from the loaded or searched list.
-                  if (_crmNames.isNotEmpty)
+                  if (_crmItems.isNotEmpty) // Use _crmItems directly
                     DropdownButtonFormField<String>(
-                      value: _selectedCrm,
+                      value: _selectedCrmId, // Use the ID as the value
                       hint: const Text('Select a CRM'),
-                      items: _crmNames.map((name) {
+                      items: _crmItems.map((item) { // Iterate over CrmItem objects
                         return DropdownMenuItem<String>(
-                          value: name,
-                          child: Text(name),
+                          value: item.id, // Use item.id as the unique value
+                          child: Text(item.name), // Display item.name
                         );
                       }).toList(),
                       onChanged: (value) {
-                        if (value != null && value != 'No results') {
+                        if (value != null) { // value is now the crmId
                           _loadCrmDetail(value);
                         }
                       },
