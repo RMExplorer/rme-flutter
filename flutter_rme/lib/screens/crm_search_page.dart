@@ -98,32 +98,28 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _isLoading = true;
       _hasError = false;
       _errorMessage = null;
+      _crmItems = []; // Explicitly clear items at the start
+      _selectedCrmId = null; // Clear previous selection
+      _selectedDetail = null; // Clear previous detail
     });
 
     try {
-      // Fetch initial data and ensure uniqueness of CrmItem objects
-      // by using a Set if CrmItem overrides == and hashCode.
-      // If CrmItem doesn't override them, Set will treat each instance as unique.
-      // However, the dropdown fix relies on unique IDs, which is handled below.
-      _crmItems = await _crmService.loadInitialData();
-      // Ensure _crmItems contains only unique CrmItem objects based on their ID
-      // This is important if the NRC API could return duplicates with different titles/summaries
-      // but the same ID, or if the logic for combining search results could introduce duplicates.
-      _crmItems = _crmItems.toSet().toList(); // Requires CrmItem to override == and hashCode (see crm_item.dart)
+      final fetchedItems = await _crmService.loadInitialData();
+      final uniqueItems = fetchedItems.toSet().toList();
+      uniqueItems.sort((a, b) => a.name.compareTo(b.name));
 
-
-      setState(() {
-        _initialLoadComplete = true;
-        // Clear selected CRM ID when initial data is loaded
-        _selectedCrmId = null;
-      });
-    } catch (e) {
-      _handleError(e.toString());
-    } finally {
-      // Ensure the loading state is reset regardless of success or failure.
       if (mounted) {
         setState(() {
-          _isLoading = false;
+          _crmItems = uniqueItems;
+          _initialLoadComplete = true;
+          _isLoading = false; // Set loading to false here
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _handleError(e.toString());
+          _isLoading = false; // Also set loading to false on error
         });
       }
     }
@@ -145,6 +141,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _errorMessage = null;
       _selectedCrmId = null; // Clear previous selection
       _selectedDetail = null; // Clear previous detail
+      _crmItems = []; // Explicitly clear items at the start
     });
 
     try {
@@ -180,28 +177,32 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
         }
       }
 
-      _crmItems = combinedResults.toList();
-      // Ensure _crmItems contains only unique CrmItem objects based on their ID
-      _crmItems = _crmItems.toSet().toList(); // Requires CrmItem to override == and hashCode (see crm_item.dart)
-      _crmItems.sort((a, b) => a.name.compareTo(b.name)); // Sort by name for display
-
-      if (_crmItems.isEmpty) {
-        if (pubChemResult != null) {
-          _handleError('No CRMs found matching "$query" or its synonyms.', isWarning: true);
-        } else {
-          _handleError('No results found for "$query".', isWarning: true);
-        }
-      } else if (!foundAnyNrcResults && pubChemResult != null) {
-        // This case means PubChem found something, but NRC didn't return any CRMs for any of the terms.
-        _handleError('No CRMs found matching "$query" or its synonyms.', isWarning: true);
-      }
-    } catch (e) {
-      _handleError(e.toString());
-    } finally {
-      // Ensure the loading state is reset regardless of success or failure.
+      // Update state after all asynchronous operations are complete
       if (mounted) {
         setState(() {
-          _isLoading = false;
+          _crmItems = combinedResults.toList();
+          // Ensure _crmItems contains only unique CrmItem objects based on their ID
+          _crmItems = _crmItems.toSet().toList(); // Requires CrmItem to override == and hashCode
+          _crmItems.sort((a, b) => a.name.compareTo(b.name)); // Sort by name for display
+
+          if (_crmItems.isEmpty) {
+            if (pubChemResult != null) {
+              _handleError('No CRMs found matching "$query" or its synonyms.', isWarning: true);
+            } else {
+              _handleError('No results found for "$query".', isWarning: true);
+            }
+          } else if (!foundAnyNrcResults && pubChemResult != null) {
+            // This case means PubChem found something, but NRC didn't return any CRMs for any of the terms.
+            _handleError('No CRMs found matching "$query" or its synonyms.', isWarning: true);
+          }
+          _isLoading = false; // Set loading to false here
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _handleError(e.toString());
+          _isLoading = false; // Also set loading to false on error
         });
       }
     }
@@ -231,16 +232,17 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
 
       final crmDetail = await _crmService.loadCrmDetail(crmItem);
 
-      setState(() {
-        _selectedCrmId = crmId;
-        _selectedDetail = crmDetail;
-      });
-    } catch (e) {
-      _handleError('Error fetching CRM details: ${e.toString()}');
-    } finally {
-      // Ensure the loading state is reset regardless of success or failure.
       if (mounted) {
         setState(() {
+          _selectedCrmId = crmId;
+          _selectedDetail = crmDetail;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _handleError('Error fetching CRM details: ${e.toString()}');
           _isLoading = false;
         });
       }
