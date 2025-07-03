@@ -6,7 +6,16 @@ import '../models/crm_item.dart';
 import '../models/crm_detail.dart';
 import '../models/analyte.dart';
 
+/// A service class for interacting with the NRC Digital Repository to fetch CRM (Certified Reference Material) data.
 class CrmService {
+  /// Loads initial CRM data from the NRC Digital Repository.
+  ///
+  /// This method makes an HTTP GET request to the NRC repository's Atom feed
+  /// to retrieve a list of CRM items. It parses the XML response and maps
+  /// each 'entry' element to a [CrmItem] object.
+  ///
+  /// Throws an [Exception] if the server responds with a status code other than 200.
+  /// Returns a [Future] that resolves to a [List] of [CrmItem] objects.
   Future<List<CrmItem>> loadInitialData() async {
     final response = await http
         .get(
@@ -18,6 +27,7 @@ class CrmService {
 
     if (response.statusCode == 200) {
       final document = xml.XmlDocument.parse(response.body);
+      // Skip the first entry as it often contains general feed information
       final items = document.findAllElements('entry').skip(1);
 
       return items
@@ -38,6 +48,14 @@ class CrmService {
     }
   }
 
+  /// Searches for CRM data in the NRC Digital Repository based on a given query.
+  ///
+  /// This method constructs a search URL with the provided [query], makes an
+  /// HTTP GET request, and parses the XML response to return a list of matching [CrmItem]s.
+  ///
+  /// [query] The search string to filter CRM items.
+  /// Throws an [Exception] if the server responds with a status code other than 200.
+  /// Returns a [Future] that resolves to a [List] of [CrmItem] objects.
   Future<List<CrmItem>> searchCrm(String query) async {
     final encodedQuery = Uri.encodeComponent(query);
     final response = await http
@@ -50,6 +68,7 @@ class CrmService {
 
     if (response.statusCode == 200) {
       final document = xml.XmlDocument.parse(response.body);
+      // Skip the first entry as it often contains general feed information
       final items = document.findAllElements('entry').skip(1);
 
       return items
@@ -70,6 +89,16 @@ class CrmService {
     }
   }
 
+  /// Loads detailed information for a specific CRM item.
+  ///
+  /// This method takes a [CrmItem], formats its ID to construct a detail URL,
+  /// makes an HTTP GET request to retrieve the HTML page, and then parses
+  /// the HTML to extract detailed information such as title, summary, DOI link,
+  /// publication date, and a list of analytes.
+  ///
+  /// [crmItem] The [CrmItem] for which to load details.
+  /// Throws an [Exception] if the server responds with a status code other than 200.
+  /// Returns a [Future] that resolves to a [CrmDetail] object.
   Future<CrmDetail> loadCrmDetail(CrmItem crmItem) async {
     final formattedId = crmItem.id.replaceAll('urn:uuid:', '');
     final url =
@@ -92,8 +121,10 @@ class CrmService {
       }
 
       List<Analyte> analytes = [];
-      Element analyteTable;
+      Element?
+      analyteTable; // Made nullable to handle cases where it might not be found
       try {
+        // Attempt to find the analyte table, trying two possible indices
         try {
           analyteTable = document.querySelectorAll(
             '.table-viewobject .table.table-condensed',
@@ -121,6 +152,7 @@ class CrmService {
           }
         }
       } on RangeError catch (_) {
+        // If no analyte table is found, analytes list remains empty
         analytes = [];
       }
 

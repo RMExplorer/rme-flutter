@@ -154,11 +154,9 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       try {
         // Attempt to get PubChem data for the query
         pubChemResult = await _pubChemService.getCompoundData(query);
-        if (pubChemResult != null) {
-          searchTerms.add(pubChemResult.name); // Add canonical name
-          searchTerms.addAll(pubChemResult.synonyms); // Add synonyms
-        }
-      } catch (e) {
+        searchTerms.add(pubChemResult.name); // Add canonical name
+        searchTerms.addAll(pubChemResult.synonyms); // Add synonyms
+            } catch (e) {
         // If PubChem lookup fails (e.g., query not found in PubChem),
         // we'll just proceed with the original query for the NRC search.
         debugPrint('PubChem lookup failed for "$query": $e');

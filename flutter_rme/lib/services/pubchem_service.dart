@@ -3,11 +3,25 @@ import 'package:flutter_rme/models/analyte.dart';
 import 'package:http/http.dart' as http;
 import '../models/pubchem_data.dart';
 
+/// A service class for interacting with the PubChem PUG REST API.
 class PubChemService {
   static const String _baseUrl = 'https://pubchem.ncbi.nlm.nih.gov/rest/pug';
 
+  /// Fetches chemical compound data from PubChem based on an identifier (e.g., name).
+  ///
+  /// This method first attempts to retrieve the Compound ID (CID) for the given identifier.
+  /// Once the CID is obtained, it fetches various properties of the compound
+  /// such as IUPAC name, molecular formula, molecular weight, SMILES, InChIKey,
+  /// exact mass, TPSA, and XLogP. It also fetches a list of synonyms.
+  ///
+  /// The [identifier] is pre-processed to handle special characters and formatting
+  /// before being used in the PubChem API request.
+  ///
+  /// [identifier] The name or other identifier of the chemical compound.
+  /// Throws an [Exception] if fetching compound data fails at any stage.
+  /// Returns a [Future] that resolves to a [PubChemData] object containing the compound's information.
   Future<PubChemData> getCompoundData(String identifier) async {
-    //parse the identifier to work with pubchem
+    // Parse the identifier to work with pubchem by replacing special characters and formatting.
     identifier = identifier.replaceAll('Δ', 'delta');
     identifier = identifier.replaceAllMapped(RegExp(r'[⁰¹²³⁴⁵⁶⁷⁸⁹]'), (match) {
       const superscripts = {
@@ -28,7 +42,7 @@ class PubChemService {
     identifier = identifier.replaceAll(' ', '-').toLowerCase();
 
     try {
-      // First try to get CID
+      // First try to get CID (Compound ID)
       final cidResponse = await http.get(
         Uri.parse('$_baseUrl/compound/name/$identifier/cids/JSON'),
       );
@@ -48,7 +62,7 @@ class PubChemService {
       final propertiesJson = jsonDecode(propertiesResponse.body);
       final properties = propertiesJson['PropertyTable']['Properties'][0];
 
-      // Parse numeric values safely
+      // Helper function to parse numeric values safely from dynamic types.
       double? parseNumeric(dynamic value) {
         if (value == null) return null;
         if (value is num) return value.toDouble();
@@ -67,7 +81,7 @@ class PubChemService {
         final synonymsJson = jsonDecode(synonymsResponse.body);
         synonyms = List<String>.from(
           synonymsJson['InformationList']['Information'][0]['Synonym'] ?? [],
-        ).take(10).toList(); //take first 10 synonyms
+        ).take(10).toList(); // Take first 10 synonyms for brevity.
       } catch (e) {
         print('Error fetching synonyms: $e');
       }
@@ -93,9 +107,16 @@ class PubChemService {
     }
   }
 
-  // Given a list of Analytes, fetch each one’s PubChemData in parallel.
+  /// Fetches PubChem data for a list of [Analyte] objects in parallel.
+  ///
+  /// This method iterates through the provided list of [analytes],
+  /// calls [getCompoundData] for each analyte's name, and waits for all
+  /// the asynchronous operations to complete using `Future.wait`.
+  ///
+  /// [analytes] A list of [Analyte] objects for which to fetch PubChem data.
+  /// Returns a [Future] that resolves to a [List] of [PubChemData] objects.
   Future<List<PubChemData>> getPubChemData(List<Analyte> analytes) {
-    // map each analyte → Future<PubChemData>, then wait for them all
+    // Map each analyte to a Future<PubChemData>, then wait for them all to complete.
     return Future.wait(analytes.map((a) => getCompoundData(a.name)));
   }
 }
