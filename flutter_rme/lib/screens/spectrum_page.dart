@@ -56,8 +56,6 @@ class _SpectrumPageState extends State<SpectrumPage> {
         'https://nrc-digital-repository.canada.ca/eng/search/atom/?q=${widget.selectedAnalyte.replaceAll(' ', '+')}',
       );
 
-      print('Fetching Atom feed from: $uri');
-
       // Make an HTTP GET request to the Atom feed.
       final response = await http.get(uri);
       if (response.statusCode != 200) {
@@ -97,7 +95,6 @@ class _SpectrumPageState extends State<SpectrumPage> {
       _csvData = null; // Clear any previous CSV data.
     });
     try {
-      print('Downloading CSV from: $url');
       // Make an HTTP GET request to download the CSV data.
       final csvResponse = await http.get(Uri.parse(url));
       if (csvResponse.statusCode != 200) {

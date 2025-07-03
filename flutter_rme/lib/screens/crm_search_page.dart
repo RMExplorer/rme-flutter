@@ -364,8 +364,15 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                         ),
                       ),
                     ),
-                  // Dropdown to select a CRM from the loaded or searched list.
-                  if (_crmItems.isNotEmpty) // Use _crmItems directly
+                  // Conditional rendering for the dropdown or loading indicator
+                  if (_isLoading && _crmItems.isEmpty)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                  else if (_crmItems.isNotEmpty) // Display dropdown only if items are available
                     DropdownButtonFormField<String>(
                       value: _selectedCrmId, // Use the ID as the value
                       hint: const Text('Select a CRM'),
@@ -382,6 +389,17 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                       },
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
+                      ),
+                    )
+                  else if (!_isLoading && _crmItems.isEmpty && _initialLoadComplete)
+                    // Display a message if no items are found after loading/searching
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20.0),
+                      child: Center(
+                        child: Text(
+                          'No CRMs found. Try a different search.',
+                          style: TextStyle(fontStyle: FontStyle.italic),
+                        ),
                       ),
                     ),
                   const SizedBox(height: 24),

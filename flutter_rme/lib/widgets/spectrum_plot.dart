@@ -51,6 +51,11 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
   /// A map to store metadata extracted from the CSV data.
   final Map<String, String> _metadata = {};
 
+  // Define a small epsilon value to prevent lines from going below the axis.
+  // This value should be small enough not to visually impact real data,
+  // but large enough to push zero points slightly above the min Y axis.
+  static const double _minPlottingIntensity = 0.001; //
+
   @override
   void initState() {
     super.initState();
@@ -89,7 +94,6 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
       return;
     }
 
-    print('Data starts at index: $dataStartIndex');
     if (dataStartIndex > 0 && dataStartIndex < csvRows.length) {
       // Extract spectral data from the identified start index onwards.
       final spectralData = csvRows
@@ -163,6 +167,10 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
     final theme = Theme.of(context);
     final isNMR = !widget.isMassSpectrum; // Determine if it's an NMR spectrum.
 
+    // Define a small threshold for proximity to min/max X values
+    final double xAxisRange = _maxXValue - _minXValue;
+    final double proximityThreshold = xAxisRange * 0.01; // 1% of the range
+
     return Scaffold(
       appBar: AppBar(
         title: Text(isNMR ? 'NMR Spectrum' : 'Mass Spectrum'),
@@ -198,7 +206,7 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
                         LineChartData(
                           minX: _minXValue,
                           maxX: _maxXValue,
-                          minY: 0,
+                          minY: 0, // Keep minY at 0.
                           maxY: _maxIntensity * 1.1, // Add some padding above max intensity.
                           lineTouchData: LineTouchData(
                             touchTooltipData: LineTouchTooltipData(
@@ -208,8 +216,12 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
                                   final xValue = isNMR
                                       ? '${spot.x.toStringAsFixed(2)} ppm'
                                       : '${spot.x.toStringAsFixed(4)} m/z';
+                                  // For tooltip, show actual intensity, not the min plotting intensity
+                                  final yValue = spot.y <= _minPlottingIntensity
+                                      ? '0.00' // If it was a 'zero' point, show 0.00
+                                      : spot.y.toStringAsFixed(2);
                                   return LineTooltipItem(
-                                    '$xValue\n${spot.y.toStringAsFixed(2)}%',
+                                    '$xValue\n$yValue%',
                                     const TextStyle(color: Colors.white),
                                   );
                                 }).toList();
@@ -222,7 +234,8 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
                                   .map(
                                     (point) => FlSpot(
                                       point.massToCharge,
-                                      point.relativeIntensity,
+                                      // Ensure intensity is at least _minPlottingIntensity to prevent going below axis.
+                                      max(_minPlottingIntensity, point.relativeIntensity), //
                                     ),
                                   )
                                   .toList(),
@@ -241,16 +254,26 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
                             bottomTitles: AxisTitles(
                               sideTitles: SideTitles(
                                 showTitles: true,
-                                reservedSize: 28,
+                                reservedSize: 50, // Increased reserved size for rotated labels
                                 interval: _calculateInterval(
                                   _maxXValue - _minXValue,
                                 ), // Dynamic interval calculation.
                                 getTitlesWidget: (value, meta) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(top: 8.0),
-                                    child: Text(
-                                      value.toStringAsFixed(isNMR ? 2 : 1), // Format X-axis labels.
-                                      style: theme.textTheme.bodySmall,
+                                  // Check if the label is too close to minXValue or maxXValue
+                                  if (value != _minXValue && value != _maxXValue &&
+                                      (value - _minXValue).abs() < proximityThreshold ||
+                                      (value - _maxXValue).abs() < proximityThreshold) {
+                                    return Container(); // Hide the label
+                                  }
+
+                                  return Transform.rotate( // Wrap with Transform.rotate
+                                    angle: -pi / 2, // Rotate by -90 degrees (vertical)
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(top: 8.0),
+                                      child: Text(
+                                        value.toStringAsFixed(isNMR ? 2 : 1), // Format X-axis labels.
+                                        style: theme.textTheme.bodySmall,
+                                      ),
                                     ),
                                   );
                                 },
@@ -305,7 +328,7 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
                                             .map(
                                               (point) => FlSpot(
                                                 point.massToCharge,
-                                                point.relativeIntensity,
+                                                max(_minPlottingIntensity, point.relativeIntensity), //
                                               ),
                                             )
                                             .toList(),
@@ -461,8 +484,15 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
     final exponent = (log(range) / ln10).floor();
     final fraction = range / pow(10, exponent);
 
-    if (fraction < 2) return 0.2 * pow(10, exponent);
-    if (fraction < 5) return 0.5 * pow(10, exponent);
-    return 1 * pow(10, exponent).toDouble();
+    double interval;
+    if (fraction < 2) {
+      interval = 0.2 * pow(10, exponent);
+    } else if (fraction < 5) {
+      interval = 0.5 * pow(10, exponent);
+    } else {
+      interval = 1 * pow(10, exponent).toDouble();
+    }
+
+    return interval;
   }
 }
