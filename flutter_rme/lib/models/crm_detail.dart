@@ -12,6 +12,9 @@ class CrmDetail {
   /// A brief summary or description of the CRM.
   final String summary;
 
+  /// The material type of the CRM
+  final String materialType;
+
   /// The Digital Object Identifier (DOI) for the CRM, if available.
   final String? doi;
 
@@ -24,11 +27,12 @@ class CrmDetail {
 
   /// Creates a [CrmDetail] instance.
   ///
-  /// [title] and [summary] are required. [doi], [date], and [analyteData]
+  /// [title], [summary] and [materialType] are required. [doi], [date], and [analyteData]
   /// are optional.
   CrmDetail({
     required this.title,
     required this.summary,
+    required this.materialType,
     this.doi,
     this.date,
     this.analyteData,

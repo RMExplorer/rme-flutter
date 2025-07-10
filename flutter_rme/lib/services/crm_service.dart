@@ -170,9 +170,14 @@ class CrmService {
           ?.text
           .trim();
 
+      final mtype = document.querySelector('span[itemprop="description"]');
+      if (mtype == null) {
+        throw Exception('Material type not found in the document.');
+      }
       return CrmDetail(
         title: title,
         summary: summaryText ?? 'No summary available',
+        materialType: mtype.text,
         doi: doiLink,
         date: datePublished,
         analyteData: analytes,

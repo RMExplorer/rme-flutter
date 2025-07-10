@@ -413,6 +413,12 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                     // Render HTML summary using FlutterHtml widget.
                     Html(data: _selectedDetail!.summary),
                     const SizedBox(height: 8),
+                    // Display material type of the CRM.
+                    Text(
+                      'Material Type: ${_selectedDetail!.materialType}',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 8),
                     // Display DOI with a clickable link if available.
                     if (_selectedDetail!.doi != null) ...[
                       Wrap(
