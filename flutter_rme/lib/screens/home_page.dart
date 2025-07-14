@@ -36,34 +36,11 @@ class HomePage extends StatelessWidget {
                 const SizedBox(height: 32),
                 /// A detailed description of the Reference Material Explorer application.
                 const Text(
-                  'The RM Explorer is an application built upon the NRC Digital Repository external Application Programming Interfaces (APIs) that allows users to visualise, analyse and display useful information about the Reference Materials produced by the National Research Council of Canada. This application relies upon and complies with FAIR data principles and showcases multiple uses of machine-readable information in digital CRM certificates.',
+                  'This is an application built upon the NRC Digital Repository external Application Programming Interfaces (APIs) that allows users to visualise, analyse and display useful information about the Reference Materials produced by the National Research Council of Canada. This application relies upon and complies with FAIR data principles and showcases multiple uses of machine-readable information in digital CRM certificates.',
                   textAlign: TextAlign.justify,
                   style: TextStyle(fontSize: 16, height: 1.5),
                 ),
-                /// A horizontal divider to visually separate sections.
-                const Divider(
-                  height: 40,
-                  thickness: 1,
-                  color: Colors.grey,
-                  indent: 15, // Left margin of the divider
-                  endIndent: 15, // Right margin of the divider
-                ),
-                /// Heading for the FAIR Compliance section.
-                const Text(
-                  'FAIR Compliance',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 10),
-                /// Explanation of how the application adheres to FAIR data principles.
-                const Text(
-                  'The RM Explorer uses data from the digital certificates of reference materials and open-source compound identifiers (InChI / InChIKeys) to calculate information and present it in a user-friendly way. It also creates an integrated data structure by fetching information from external sources such as PubChem and comparing the information presented in these external sources to its calculated values.',
-                  textAlign: TextAlign.justify,
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                
               ],
             ),
           ),
