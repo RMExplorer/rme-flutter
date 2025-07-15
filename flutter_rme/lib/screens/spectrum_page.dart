@@ -1,3 +1,4 @@
+// spectrum_page.dart
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -30,6 +31,9 @@ class _SpectrumPageState extends State<SpectrumPage> {
   List<Map<String, String>> _availableSpectra = []; // List of available spectra (title and href).
   String? _selectedSpectrumUrl; // The URL of the currently selected spectrum.
   bool _isMassSpectrum = true; // Determines if the current spectrum is a mass spectrum (vs. NMR).
+  // New state variables for axis reversal
+  bool _reverseXAxis = false;
+  bool _reverseYAxis = false;
 
   @override
   void initState() {
@@ -168,11 +172,11 @@ class _SpectrumPageState extends State<SpectrumPage> {
       appBar: AppBar(
         title: Text(widget.selectedAnalyte),
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: DropdownButtonHideUnderline(
+      body: Padding( // Add Padding here to match the removed Scaffold in SpectrumPlot
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 isExpanded: true, // Allow dropdown to take available width.
                 value: _selectedSpectrumUrl, // The currently selected spectrum's URL.
@@ -205,17 +209,29 @@ class _SpectrumPageState extends State<SpectrumPage> {
                 ).toList(),
               ),
             ),
-          ),
-          Expanded(
-            // Display SpectrumPlot if CSV data is available, otherwise show a message.
-            child: _csvData == null
-                ? const Center(child: Text('No spectral data available for selection'))
-                : SpectrumPlot(
-                    csvData: _csvData!, // Pass the CSV data to the SpectrumPlot widget.
-                    isMassSpectrum: _isMassSpectrum, // Pass the plot type.
-                  ),
-          ),
-        ],
+            Expanded(
+              // Display SpectrumPlot if CSV data is available, otherwise show a message.
+              child: _csvData == null
+                  ? const Center(child: Text('No spectral data available for selection'))
+                  : SpectrumPlot(
+                      csvData: _csvData!, // Pass the CSV data to the SpectrumPlot widget.
+                      isMassSpectrum: _isMassSpectrum, // Pass the plot type.
+                      reverseXAxis: _reverseXAxis, // Pass the x-axis reversal state
+                      reverseYAxis: _reverseYAxis, // Pass the y-axis reversal state
+                      onToggleReverseXAxis: (newValue) {
+                        setState(() {
+                          _reverseXAxis = newValue;
+                        });
+                      },
+                      onToggleReverseYAxis: (newValue) {
+                        setState(() {
+                          _reverseYAxis = newValue;
+                        });
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

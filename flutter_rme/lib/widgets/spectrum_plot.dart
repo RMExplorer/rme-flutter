@@ -1,3 +1,4 @@
+// spectrum_plot.dart
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -16,6 +17,14 @@ class SpectrumPlot extends StatefulWidget {
   /// or an NMR spectrum (false). Defaults to true.
   final bool isMassSpectrum;
 
+  // New properties for axis reversal
+  final bool reverseXAxis;
+  final bool reverseYAxis;
+
+  // Callbacks for axis reversal
+  final ValueChanged<bool> onToggleReverseXAxis;
+  final ValueChanged<bool> onToggleReverseYAxis;
+
   /// Creates a [SpectrumPlot] widget.
   ///
   /// The [key] is used to control how one widget replaces another in the widget tree.
@@ -25,6 +34,10 @@ class SpectrumPlot extends StatefulWidget {
     super.key,
     required this.csvData,
     this.isMassSpectrum = true,
+    this.reverseXAxis = false, // Initialize to false
+    this.reverseYAxis = false, // Initialize to false
+    required this.onToggleReverseXAxis,
+    required this.onToggleReverseYAxis,
   });
 
   @override
@@ -60,6 +73,17 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
   void initState() {
     super.initState();
     _parseCsvData(); // Parse the CSV data when the widget is initialized.
+  }
+
+  // Add didUpdateWidget to re-parse CSV if it changes (though not strictly necessary for axis reversal)
+  @override
+  void didUpdateWidget(covariant SpectrumPlot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.csvData != oldWidget.csvData ||
+        widget.reverseXAxis != oldWidget.reverseXAxis ||
+        widget.reverseYAxis != oldWidget.reverseYAxis) {
+      _parseCsvData(); // Re-parse if CSV data or reversal flags change
+    }
   }
 
   /// Parses the CSV data provided to the widget.
@@ -154,9 +178,13 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
 
     // Limit to top 20 peaks to prevent excessive rendering or memory issues.
     if (peaks.length > 20) {
-      peaks.sort((a, b) => b.y.compareTo(a.y)); // Sort by intensity (descending).
+      peaks.sort(
+        (a, b) => b.y.compareTo(a.y),
+      ); // Sort by intensity (descending).
       peaks = peaks.sublist(0, 20); // Take the top 20.
-      peaks.sort((a, b) => a.x.compareTo(b.x)); // Sort by x-value (ascending) for plotting.
+      peaks.sort(
+        (a, b) => a.x.compareTo(b.x),
+      ); // Sort by x-value (ascending) for plotting.
     }
 
     return peaks;
@@ -165,223 +193,261 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isNMR = !widget.isMassSpectrum; // Determine if it's an NMR spectrum.
+    final isNMR = !widget.isMassSpectrum;
 
-    // Define a small threshold for proximity to min/max X values
-    final double xAxisRange = _maxXValue - _minXValue;
-    final double proximityThreshold = xAxisRange * 0.01; // 1% of the range
+    // Always use the true min and max for FlChartData's domain
+    double chartMinX = _minXValue;
+    double chartMaxX = _maxXValue;
+    double chartMinY = 0;
+    double chartMaxY = _maxIntensity * 1.1; // Add a little buffer for max Y
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(isNMR ? 'NMR Spectrum' : 'Mass Spectrum'),
-        elevation: 0,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Display metadata section if available.
-            if (_metadata.isNotEmpty) ...[
-              _buildMetadataSection(),
-              const SizedBox(height: 16),
-            ],
-            Expanded(
-              child: _spectralData.isEmpty
-                  ? const Center(child: CircularProgressIndicator()) // Show loading indicator if data is empty.
-                  : Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black12,
-                            blurRadius: 4,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
+    // Prepare the spots for the line chart, applying reversal if needed
+    List<FlSpot> plotSpots = _spectralData.map((point) {
+      double x = point.massToCharge;
+      double y = max(_minPlottingIntensity, point.relativeIntensity);
+
+      // Apply X-axis reversal to the point's X coordinate
+      if (widget.reverseXAxis) {
+        x = chartMaxX - (x - chartMinX);
+      }
+      // Apply Y-axis reversal to the point's Y coordinate
+      if (widget.reverseYAxis) {
+        y = chartMaxY - y + chartMinY; // Flip y within its range
+      }
+      return FlSpot(x, y);
+    }).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_metadata.isNotEmpty) ...[
+          _buildMetadataSection(),
+          const SizedBox(height: 16),
+        ],
+        Expanded(
+          child: _spectralData.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
                       ),
-                      padding: const EdgeInsets.all(16),
-                      child: LineChart(
-                        LineChartData(
-                          minX: _minXValue,
-                          maxX: _maxXValue,
-                          minY: 0, // Keep minY at 0.
-                          maxY: _maxIntensity * 1.1, // Add some padding above max intensity.
-                          lineTouchData: LineTouchData(
-                            touchTooltipData: LineTouchTooltipData(
-                              getTooltipItems: (touchedSpots) {
-                                return touchedSpots.map((spot) {
-                                  // Customize tooltip text based on spectrum type.
-                                  final xValue = isNMR
-                                      ? '${spot.x.toStringAsFixed(2)} ppm'
-                                      : '${spot.x.toStringAsFixed(4)} m/z';
-                                  // For tooltip, show actual intensity, not the min plotting intensity
-                                  final yValue = spot.y <= _minPlottingIntensity
-                                      ? '0.00' // If it was a 'zero' point, show 0.00
-                                      : spot.y.toStringAsFixed(2);
-                                  return LineTooltipItem(
-                                    '$xValue\n$yValue%',
-                                    const TextStyle(color: Colors.white),
-                                  );
-                                }).toList();
-                              },
-                            ),
-                          ),
-                          lineBarsData: [
-                            LineChartBarData(
-                              spots: _spectralData
-                                  .map(
-                                    (point) => FlSpot(
-                                      point.massToCharge,
-                                      // Ensure intensity is at least _minPlottingIntensity to prevent going below axis.
-                                      max(_minPlottingIntensity, point.relativeIntensity), //
-                                    ),
-                                  )
-                                  .toList(),
-                              isCurved: false, // Straight lines between points for spectra.
-                              color: Colors.blue,
-                              barWidth: 1.5,
-                              isStrokeCapRound: true,
-                              belowBarData: BarAreaData(show: false),
-                              dotData: FlDotData(show: false), // No dots at data points.
-                            ),
-                          ],
-                          titlesData: FlTitlesData(
-                            show: true,
-                            rightTitles: AxisTitles(),
-                            topTitles: AxisTitles(),
-                            bottomTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                showTitles: true,
-                                reservedSize: 50, // Increased reserved size for rotated labels
-                                interval: _calculateInterval(
-                                  _maxXValue - _minXValue,
-                                ), // Dynamic interval calculation.
-                                getTitlesWidget: (value, meta) {
-                                  // Check if the label is too close to minXValue or maxXValue
-                                  if (value != _minXValue && value != _maxXValue &&
-                                      (value - _minXValue).abs() < proximityThreshold ||
-                                      (value - _maxXValue).abs() < proximityThreshold) {
-                                    return Container(); // Hide the label
-                                  }
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(16),
+                  child: LineChart(
+                    LineChartData(
+                      minX: chartMinX,
+                      maxX: chartMaxX,
+                      minY: chartMinY,
+                      maxY: chartMaxY,
 
-                                  return Transform.rotate( // Wrap with Transform.rotate
-                                    angle: -pi / 2, // Rotate by -90 degrees (vertical)
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(top: 8.0),
-                                      child: Text(
-                                        value.toStringAsFixed(isNMR ? 2 : 1), // Format X-axis labels.
-                                        style: theme.textTheme.bodySmall,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            leftTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                showTitles: true,
-                                reservedSize: 40,
-                                interval: _calculateInterval(_maxIntensity), // Dynamic interval calculation.
-                                getTitlesWidget: (value, meta) {
-                                  return Text(
-                                    value.toStringAsFixed(0),
-                                    style: theme.textTheme.bodySmall,
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                          gridData: FlGridData(
-                            show: true,
-                            drawVerticalLine: true,
-                            horizontalInterval: _calculateInterval(
-                              _maxIntensity,
-                            ),
-                            verticalInterval: _calculateInterval(
-                              _maxXValue - _minXValue,
-                            ),
-                            getDrawingHorizontalLine: (value) => FlLine(
-                              color: Colors.grey.withOpacity(0.3),
-                              strokeWidth: 1,
-                            ),
-                            getDrawingVerticalLine: (value) => FlLine(
-                              color: Colors.grey.withOpacity(0.3),
-                              strokeWidth: 1,
-                            ),
-                          ),
-                          borderData: FlBorderData(
-                            show: true,
-                            border: Border.all(
-                              color: Colors.grey.withOpacity(0.3),
-                              width: 1,
-                            ),
-                          ),
-                          // Only show the tooltip for the most intense peak by default.
-                          showingTooltipIndicators: _peaks.isNotEmpty
-                              ? [
-                                  ShowingTooltipIndicators([
-                                    LineBarSpot(
-                                      LineChartBarData(
-                                        spots: _spectralData
-                                            .map(
-                                              (point) => FlSpot(
-                                                point.massToCharge,
-                                                max(_minPlottingIntensity, point.relativeIntensity), //
-                                              ),
-                                            )
-                                            .toList(),
-                                        isCurved: false,
-                                        color: Colors.blue,
-                                        barWidth: 1.5,
-                                        isStrokeCapRound: true,
-                                        belowBarData: BarAreaData(show: false),
-                                        dotData: FlDotData(show: false),
-                                      ),
-                                      _spectralData.indexWhere(
-                                        (p) =>
-                                            p.massToCharge ==
-                                            _peaks
-                                                .firstWhere(
-                                                  (peak) =>
-                                                      peak.y ==
-                                                      _peaks
-                                                          .map((p) => p.y)
-                                                          .reduce(max),
-                                                )
-                                                .x,
-                                      ),
-                                      _peaks.firstWhere(
-                                        (peak) =>
-                                            peak.y ==
-                                            _peaks.map((p) => p.y).reduce(max),
-                                      ),
-                                    ),
-                                  ]),
-                                ]
-                              : [],
+                      lineTouchData: LineTouchData(
+                        touchTooltipData: LineTouchTooltipData(
+                          getTooltipItems: (touchedSpots) {
+                            return touchedSpots.map((spot) {
+                              // For tooltip, we need to show the original value, not the flipped one
+                              double originalX = spot.x;
+                              double originalY = spot.y;
+
+                              if (widget.reverseXAxis) {
+                                originalX = chartMinX + (chartMaxX - spot.x);
+                              }
+                              if (widget.reverseYAxis) {
+                                originalY = chartMaxY - spot.y + chartMinY;
+                              }
+
+                              final xValue = isNMR
+                                  ? '${originalX.toStringAsFixed(2)} ppm'
+                                  : '${originalX.toStringAsFixed(4)} m/z';
+                              final yValue = originalY <= _minPlottingIntensity
+                                  ? '0.00'
+                                  : originalY.toStringAsFixed(2);
+                              return LineTooltipItem(
+                                '$xValue\n$yValue%',
+                                const TextStyle(color: Colors.white),
+                              );
+                            }).toList();
+                          },
                         ),
                       ),
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots:
+                              plotSpots, // Use the potentially reversed spots
+                          isCurved: false,
+                          color: Colors.blue,
+                          barWidth: 1.5,
+                          isStrokeCapRound: true,
+                          belowBarData: BarAreaData(show: false),
+                          dotData: FlDotData(show: false),
+                        ),
+                      ],
+                      titlesData: FlTitlesData(
+                        show: true,
+                        rightTitles: AxisTitles(),
+                        topTitles: AxisTitles(),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 50,
+                            interval: _calculateInterval(
+                              _maxXValue - _minXValue,
+                            ),
+                            getTitlesWidget: (value, meta) {
+                              // Apply reversal for X-axis labels
+                              final textValue = widget.reverseXAxis
+                                  ? (_maxXValue - (value - _minXValue))
+                                        .toStringAsFixed(isNMR ? 2 : 1)
+                                  : value.toStringAsFixed(isNMR ? 2 : 1);
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Text(
+                                  textValue,
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 60,
+                            interval: _calculateInterval(_maxIntensity),
+                            getTitlesWidget: (value, meta) {
+                              // Apply reversal for Y-axis labels
+                              final textValue = widget.reverseYAxis
+                                  ? (_maxIntensity * 1.1 - value)
+                                        .toStringAsFixed(0)
+                                  : value.toStringAsFixed(0);
+                              return Text(
+                                textValue,
+                                style: theme.textTheme.bodySmall,
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      gridData: FlGridData(
+                        show: true,
+                        drawVerticalLine: true,
+                        horizontalInterval: _calculateInterval(_maxIntensity),
+                        verticalInterval: _calculateInterval(
+                          _maxXValue - _minXValue,
+                        ),
+                        getDrawingHorizontalLine: (value) => FlLine(
+                          color: Colors.grey.withOpacity(0.3),
+                          strokeWidth: 1,
+                        ),
+                        getDrawingVerticalLine: (value) => FlLine(
+                          color: Colors.grey.withOpacity(0.3),
+                          strokeWidth: 1,
+                        ),
+                      ),
+                      borderData: FlBorderData(
+                        show: true,
+                        border: Border.all(
+                          color: Colors.grey.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      // Only show the tooltip for the most intense peak by default.
+                      showingTooltipIndicators: _peaks.isNotEmpty
+                          ? [
+                              ShowingTooltipIndicators([
+                                LineBarSpot(
+                                  LineChartBarData(
+                                    spots:
+                                        plotSpots, // Use the potentially reversed spots for tooltip indicator too
+                                    isCurved: false,
+                                    color: Colors.blue,
+                                    barWidth: 1.5,
+                                    isStrokeCapRound: true,
+                                    belowBarData: BarAreaData(show: false),
+                                    dotData: FlDotData(show: false),
+                                  ),
+                                  _spectralData.indexWhere(
+                                    (p) =>
+                                        p.massToCharge ==
+                                        _peaks
+                                            .firstWhere(
+                                              (peak) =>
+                                                  peak.y ==
+                                                  _peaks
+                                                      .map((p) => p.y)
+                                                      .reduce(max),
+                                            )
+                                            .x,
+                                  ),
+                                  // The peak's FlSpot needs to be transformed if axes are reversed
+                                  (() {
+                                    FlSpot originalPeak = _peaks.firstWhere(
+                                      (peak) =>
+                                          peak.y ==
+                                          _peaks.map((p) => p.y).reduce(max),
+                                    );
+                                    double peakX = originalPeak.x;
+                                    double peakY = originalPeak.y;
+                                    if (widget.reverseXAxis) {
+                                      peakX = chartMaxX - (peakX - chartMinX);
+                                    }
+                                    if (widget.reverseYAxis) {
+                                      peakY = chartMaxY - peakY + chartMinY;
+                                    }
+                                    return FlSpot(peakX, peakY);
+                                  })(),
+                                ),
+                              ]),
+                            ]
+                          : [],
                     ),
+                  ),
+                ),
+        ),
+        const SizedBox(height: 16),
+        // Display axis labels and range information.
+        Text(
+          isNMR
+              ? 'Chemical Shift (ppm) vs Intensity'
+              : 'Mass-to-Charge (m/z) vs Relative Intensity',
+          style: theme.textTheme.titleMedium,
+        ),
+        Text(
+          'Range: ${_minXValue.toStringAsFixed(isNMR ? 2 : 4)} to '
+          '${_maxXValue.toStringAsFixed(isNMR ? 2 : 4)} '
+          '${isNMR ? 'ppm' : 'm/z'}',
+          style: theme.textTheme.bodySmall,
+        ),
+        const SizedBox(height: 16),
+        // Buttons for axis reversal, now moved here
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            ElevatedButton(
+              onPressed: () {
+                widget.onToggleReverseXAxis(!widget.reverseXAxis);
+              },
+              child: Text(
+                widget.reverseXAxis ? 'Un-reverse X-axis' : 'Reverse X-axis',
+              ),
             ),
-            const SizedBox(height: 16),
-            // Display axis labels and range information.
-            Text(
-              isNMR
-                  ? 'Chemical Shift (ppm) vs Intensity'
-                  : 'Mass-to-Charge (m/z) vs Relative Intensity',
-              style: theme.textTheme.titleMedium,
-            ),
-            Text(
-              'Range: ${_minXValue.toStringAsFixed(isNMR ? 2 : 4)} to '
-              '${_maxXValue.toStringAsFixed(isNMR ? 2 : 4)} '
-              '${isNMR ? 'ppm' : 'm/z'}',
-              style: theme.textTheme.bodySmall,
+            ElevatedButton(
+              onPressed: () {
+                widget.onToggleReverseYAxis(!widget.reverseYAxis);
+              },
+              child: Text(
+                widget.reverseYAxis ? 'Un-reverse Y-axis' : 'Reverse Y-axis',
+              ),
             ),
           ],
         ),
-      ),
+      ],
     );
   }
 
@@ -421,10 +487,17 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
                   if (doiValue != null && doiValue.isNotEmpty) {
                     final url = Uri.parse('https://doi.org/$doiValue');
                     // Attempt to launch the URL. If it fails, show a SnackBar.
-                    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-                      print('Could not launch $url with externalApplication mode.');
+                    if (!await launchUrl(
+                      url,
+                      mode: LaunchMode.externalApplication,
+                    )) {
+                      print(
+                        'Could not launch $url with externalApplication mode.',
+                      );
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Could not open DOI link.')),
+                        const SnackBar(
+                          content: Text('Could not open DOI link.'),
+                        ),
                       );
                     } else {
                       print('Successfully launched $url');
