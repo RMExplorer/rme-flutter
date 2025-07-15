@@ -114,6 +114,10 @@ class _PolarityMwPlotPageState extends State<PolarityMwPlotPage> {
         )
         .toList();
 
+    // Generate a list of unique colors for each spot
+    final colorList = List<Color>.from(Colors.primaries)
+      ..addAll(Colors.accents);
+
     return Column(
       children: [
         Expanded(
@@ -124,25 +128,41 @@ class _PolarityMwPlotPageState extends State<PolarityMwPlotPage> {
               children: [
                 ScatterChart(
                   ScatterChartData(
-                    // Map FlSpot objects to ScatterSpot objects for the chart.
+                    // Map FlSpot objects to ScatterSpot objects for the chart with unique colors
                     scatterSpots: spots.asMap().entries.map((entry) {
+                      final index = entry.key;
                       final spot = entry.value;
-                      return ScatterSpot(spot.x, spot.y);
+                      // Get a color from the colorList, cycling through them if needed
+                      final color = colorList[index % colorList.length];
+                      return ScatterSpot(
+                        spot.x,
+                        spot.y,
+                        // Use a custom dot painter to set the color
+                        dotPainter: FlDotCirclePainter(
+                          color: color,
+                          strokeWidth: 1,
+                          strokeColor: Colors.white,
+                          radius: 6, // Make dots larger for better visibility
+                        ),
+                      );
                     }).toList(),
                     minX: -10, // Minimum value for the X-axis (pKow).
                     maxX: 10, // Maximum value for the X-axis (pKow).
                     minY: 0, // Minimum value for the Y-axis (Molecular Weight).
-                    maxY: 2500, // Maximum value for the Y-axis (Molecular Weight).
+                    maxY:
+                        2500, // Maximum value for the Y-axis (Molecular Weight).
                     borderData: FlBorderData(show: true), // Show chart borders.
                     scatterTouchData: ScatterTouchData(
-                      enabled: true, // Enable touch interactions on scatter spots.
+                      enabled:
+                          true, // Enable touch interactions on scatter spots.
                       touchTooltipData: ScatterTouchTooltipData(
                         // Define how tooltips are displayed when a spot is touched.
                         getTooltipItems: (ScatterSpot touchedSpot) {
                           // Find the index of the touched spot in the original data.
                           final index = spots.indexWhere(
                             (spot) =>
-                                spot.x == touchedSpot.x && spot.y == touchedSpot.y,
+                                spot.x == touchedSpot.x &&
+                                spot.y == touchedSpot.y,
                           );
                           // Get the compound name for the tooltip.
                           final name = index >= 0 && index < validData.length
@@ -153,6 +173,7 @@ class _PolarityMwPlotPageState extends State<PolarityMwPlotPage> {
                             textStyle: const TextStyle(
                               color: Colors.white,
                               fontSize: 12,
+                              fontWeight: FontWeight.bold,
                             ),
                             bottomMargin: 6,
                           );
@@ -163,12 +184,16 @@ class _PolarityMwPlotPageState extends State<PolarityMwPlotPage> {
                       show: true, // Show grid lines.
                       drawVerticalLine: true, // Draw vertical grid lines.
                       drawHorizontalLine: true, // Draw horizontal grid lines.
-                      horizontalInterval: 500, // Interval for horizontal grid lines.
+                      horizontalInterval:
+                          500, // Interval for horizontal grid lines.
                       verticalInterval: 2, // Interval for vertical grid lines.
                       getDrawingHorizontalLine: (value) {
                         // Customize the horizontal grid line at Y=500.
                         if (value == 500) {
-                          return const FlLine(color: Colors.red, strokeWidth: 2);
+                          return const FlLine(
+                            color: Colors.red,
+                            strokeWidth: 2,
+                          );
                         }
                         return FlLine(
                           color: Colors.grey.withOpacity(0.5),
@@ -236,10 +261,14 @@ class _PolarityMwPlotPageState extends State<PolarityMwPlotPage> {
                         ),
                       ),
                       rightTitles: AxisTitles(
-                        sideTitles: SideTitles(showTitles: false), // Hide right axis titles.
+                        sideTitles: SideTitles(
+                          showTitles: false,
+                        ), // Hide right axis titles.
                       ),
                       topTitles: AxisTitles(
-                        sideTitles: SideTitles(showTitles: false), // Hide top axis titles.
+                        sideTitles: SideTitles(
+                          showTitles: false,
+                        ), // Hide top axis titles.
                       ),
                     ),
                   ),
@@ -285,9 +314,11 @@ class _PolarityMwPlotPageState extends State<PolarityMwPlotPage> {
         SizedBox(
           height: 200, // Fixed height for the data table container.
           child: SingleChildScrollView(
-            scrollDirection: Axis.vertical, // Enable vertical scrolling for the table.
+            scrollDirection:
+                Axis.vertical, // Enable vertical scrolling for the table.
             child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal, // Enable horizontal scrolling for the table.
+              scrollDirection:
+                  Axis.horizontal, // Enable horizontal scrolling for the table.
               child: DataTable(
                 columnSpacing: 20, // Spacing between columns.
                 sortColumnIndex: _sortColumnIndex, // Current sorted column.
@@ -313,7 +344,8 @@ class _PolarityMwPlotPageState extends State<PolarityMwPlotPage> {
                       'MW (g/mol)',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    numeric: true, // Indicates a numeric column for right alignment.
+                    numeric:
+                        true, // Indicates a numeric column for right alignment.
                     onSort: (columnIndex, ascending) {
                       // Update sort state when column header is tapped.
                       setState(() {
@@ -328,7 +360,8 @@ class _PolarityMwPlotPageState extends State<PolarityMwPlotPage> {
                       'pKow',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    numeric: true, // Indicates a numeric column for right alignment.
+                    numeric:
+                        true, // Indicates a numeric column for right alignment.
                     onSort: (columnIndex, ascending) {
                       // Update sort state when column header is tapped.
                       setState(() {
