@@ -133,11 +133,7 @@ class InstructionsPage extends StatelessWidget {
                 const Text(
                   'This app uses data from the NRC Digital Repository and open-source compound identifiers (InChI / InChIKey) from PubChem to retrieve information.',
                   textAlign: TextAlign.justify,
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 16, height: 1.5),
                 ),
               ],
             ),

@@ -135,7 +135,9 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
           .toList();
 
       if (spectralData.isNotEmpty) {
-        final intensities = spectralData.map((e) => e.relativeIntensity).toList();
+        final intensities = spectralData
+            .map((e) => e.relativeIntensity)
+            .toList();
         final xValues = spectralData.map((e) => e.massToCharge).toList();
 
         // Update the state with the parsed data and calculated values.
@@ -172,7 +174,8 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
 
     List<FlSpot> peaks = [];
     final threshold = _maxIntensity * 0.1; // 10% threshold for peak intensity.
-    final minPeakDistance = (_maxXValue - _minXValue) / 50; // Minimum distance between peaks.
+    final minPeakDistance =
+        (_maxXValue - _minXValue) / 50; // Minimum distance between peaks.
 
     // Find local maxima by comparing a point to its immediate neighbors.
     for (int i = 2; i < data.length - 2; i++) {
@@ -183,7 +186,8 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
           current > data[i - 2].relativeIntensity &&
           current > data[i + 2].relativeIntensity) {
         // Add peak if it's the first or sufficiently far from the last added peak.
-        if (peaks.isEmpty || (data[i].massToCharge - peaks.last.x).abs() > minPeakDistance) {
+        if (peaks.isEmpty ||
+            (data[i].massToCharge - peaks.last.x).abs() > minPeakDistance) {
           peaks.add(FlSpot(data[i].massToCharge, current));
         }
       }
@@ -223,7 +227,8 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
         _currentMinX = _minXValue;
         _currentMaxX = _maxXValue;
       }
-      _visibleXRangeAtZoom = _currentMaxX - _currentMinX; // Update visible range
+      _visibleXRangeAtZoom =
+          _currentMaxX - _currentMinX; // Update visible range
     });
   }
 
@@ -250,7 +255,8 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
         _currentMinX = _minXValue;
         _currentMaxX = _maxXValue;
       }
-      _visibleXRangeAtZoom = _currentMaxX - _currentMinX; // Update visible range
+      _visibleXRangeAtZoom =
+          _currentMaxX - _currentMinX; // Update visible range
     });
   }
 
@@ -289,7 +295,9 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
     }).toList();
 
     // Determine if the chart is zoomed enough to show the slider
-    final bool isZoomedIn = (_maxXValue - _minXValue) - _visibleXRangeAtZoom > 0.01; // Using a small epsilon
+    final bool isZoomedIn =
+        (_maxXValue - _minXValue) - _visibleXRangeAtZoom >
+        0.01; // Using a small epsilon
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -301,203 +309,280 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
         Expanded(
           child: _spectralData.isEmpty
               ? const Center(child: CircularProgressIndicator())
-              : Stack(
+              : Row(
                   children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black12,
-                            blurRadius: 4,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.all(16),
-                      child: LineChart(
-                        LineChartData(
-                          minX: chartMinX,
-                          maxX: chartMaxX,
-                          minY: chartMinY,
-                          maxY: chartMaxY,
-                          // LineTouchData for tooltips (removed pan logic)
-                          lineTouchData: LineTouchData(
-                            enabled: true, // Keep enabled for tooltip
-                            handleBuiltInTouches: false, // Disable built-in pan/zoom gestures
-                            touchCallback: (FlTouchEvent event, LineTouchResponse? touchResponse) {
-                              // Only handle tooltip related events, no pan logic here
-                            },
-                            touchTooltipData: LineTouchTooltipData(
-                              getTooltipItems: (touchedSpots) {
-                                return touchedSpots.map((spot) {
-                                  // For tooltip, we need to show the original value, not the flipped one
-                                  double originalX = spot.x;
-                                  double originalY = spot.y;
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black12,
+                                  blurRadius: 4,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            padding: const EdgeInsets.all(16),
+                            child: LineChart(
+                              LineChartData(
+                                minX: chartMinX,
+                                maxX: chartMaxX,
+                                minY: chartMinY,
+                                maxY: chartMaxY,
+                                lineTouchData: LineTouchData(
+                                  enabled: true,
+                                  handleBuiltInTouches: false,
+                                  touchCallback:
+                                      (
+                                        FlTouchEvent event,
+                                        LineTouchResponse? touchResponse,
+                                      ) {
+                                        // Only handle tooltip related events, no pan logic here
+                                      },
+                                  touchTooltipData: LineTouchTooltipData(
+                                    getTooltipItems: (touchedSpots) {
+                                      return touchedSpots.map((spot) {
+                                        double originalX = spot.x;
+                                        double originalY = spot.y;
 
-                                  if (widget.reverseXAxis) {
-                                    originalX = _minXValue + (_maxXValue - spot.x);
-                                  }
-                                  if (widget.reverseYAxis) {
-                                    originalY = (_maxIntensity * 1.1) - spot.y + 0;
-                                  }
-
-                                  final xValue = isNMR
-                                      ? '${originalX.toStringAsFixed(2)} ppm'
-                                      : '${originalX.toStringAsFixed(4)} m/z';
-                                  final yValue = originalY <= _minPlottingIntensity
-                                      ? '0.00'
-                                      : originalY.toStringAsFixed(2);
-                                  return LineTooltipItem(
-                                    '$xValue\n$yValue%',
-                                    const TextStyle(color: Colors.white),
-                                  );
-                                }).toList();
-                              },
-                            ),
-                          ),
-                          lineBarsData: [
-                            LineChartBarData(
-                              spots: plotSpots, // Use the potentially reversed and filtered spots
-                              isCurved: false,
-                              color: Colors.blue,
-                              barWidth: 1.5,
-                              isStrokeCapRound: true,
-                              belowBarData: BarAreaData(show: false),
-                              dotData: FlDotData(show: false),
-                            ),
-                          ],
-                          titlesData: FlTitlesData(
-                            show: true,
-                            rightTitles: AxisTitles(),
-                            topTitles: AxisTitles(),
-                            bottomTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                showTitles: true,
-                                reservedSize: 50,
-                                // Calculate interval based on current *visible* range
-                                interval: _calculateInterval(chartMaxX - chartMinX),
-                                getTitlesWidget: (value, meta) {
-                                  // Apply reversal for X-axis labels
-                                  final textValue = widget.reverseXAxis
-                                      ? (_maxXValue - (value - _minXValue)).toStringAsFixed(isNMR ? 2 : 1)
-                                      : value.toStringAsFixed(isNMR ? 2 : 1);
-                                  return Padding(
-                                    padding: const EdgeInsets.only(top: 8.0),
-                                    child: Text(
-                                      textValue,
-                                      style: theme.textTheme.bodySmall,
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            leftTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                showTitles: true,
-                                reservedSize: 60,
-                                // Calculate interval based on current *visible* range
-                                interval: _calculateInterval(chartMaxY - chartMinY),
-                                getTitlesWidget: (value, meta) {
-                                  // Apply reversal for Y-axis labels
-                                  final textValue = widget.reverseYAxis
-                                      ? (_maxIntensity * 1.1 - value).toStringAsFixed(0)
-                                      : value.toStringAsFixed(0);
-                                  return Text(
-                                    textValue,
-                                    style: theme.textTheme.bodySmall,
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                          gridData: FlGridData(
-                            show: true,
-                            drawVerticalLine: true,
-                            horizontalInterval: _calculateInterval(chartMaxY - chartMinY),
-                            verticalInterval: _calculateInterval(chartMaxX - chartMinX),
-                            getDrawingHorizontalLine: (value) => FlLine(
-                              color: Colors.grey.withOpacity(0.3),
-                              strokeWidth: 1,
-                            ),
-                            getDrawingVerticalLine: (value) => FlLine(
-                              color: Colors.grey.withOpacity(0.3),
-                              strokeWidth: 1,
-                            ),
-                          ),
-                          borderData: FlBorderData(
-                            show: true,
-                            border: Border.all(
-                              color: Colors.grey.withOpacity(0.3),
-                              width: 1,
-                            ),
-                          ),
-                          // Only show the tooltip for the most intense peak by default.
-                          showingTooltipIndicators: _peaks.isNotEmpty
-                              ? [
-                                  ShowingTooltipIndicators([
-                                    LineBarSpot(
-                                      LineChartBarData(
-                                        spots: plotSpots, // Use the potentially reversed spots for tooltip indicator too
-                                        isCurved: false,
-                                        color: Colors.blue,
-                                        barWidth: 1.5,
-                                        isStrokeCapRound: true,
-                                        belowBarData: BarAreaData(show: false),
-                                        dotData: FlDotData(show: false),
-                                      ),
-                                      // Find the index of the most intense peak within the *original* _spectralData
-                                      _spectralData.indexWhere(
-                                        (p) =>
-                                            p.massToCharge ==
-                                            _peaks
-                                                .firstWhere(
-                                                  (peak) =>
-                                                      peak.y ==
-                                                      _peaks.map((p) => p.y).reduce(max),
-                                                )
-                                                .x,
-                                      ),
-                                      // The peak's FlSpot needs to be transformed if axes are reversed
-                                      (() {
-                                        FlSpot originalPeak = _peaks.firstWhere(
-                                          (peak) =>
-                                              peak.y == _peaks.map((p) => p.y).reduce(max),
-                                        );
-                                        double peakX = originalPeak.x;
-                                        double peakY = originalPeak.y;
                                         if (widget.reverseXAxis) {
-                                          peakX = _maxXValue - (peakX - _minXValue);
+                                          originalX =
+                                              _minXValue +
+                                              (_maxXValue - spot.x);
                                         }
                                         if (widget.reverseYAxis) {
-                                          peakY = (_maxIntensity * 1.1) - peakY + 0;
+                                          originalY =
+                                              (_maxIntensity * 1.1) -
+                                              spot.y +
+                                              0;
                                         }
-                                        return FlSpot(peakX, peakY);
-                                      })(),
+
+                                        final xValue = isNMR
+                                            ? '${originalX.toStringAsFixed(2)} ppm'
+                                            : '${originalX.toStringAsFixed(4)} m/z';
+                                        final yValue =
+                                            originalY <= _minPlottingIntensity
+                                            ? '0.00'
+                                            : originalY.toStringAsFixed(2);
+                                        return LineTooltipItem(
+                                          '$xValue\n$yValue%',
+                                          const TextStyle(color: Colors.white),
+                                        );
+                                      }).toList();
+                                    },
+                                  ),
+                                ),
+                                lineBarsData: [
+                                  LineChartBarData(
+                                    spots: plotSpots,
+                                    isCurved: false,
+                                    color: Colors.blue,
+                                    barWidth: 1.5,
+                                    isStrokeCapRound: true,
+                                    belowBarData: BarAreaData(show: false),
+                                    dotData: FlDotData(show: false),
+                                  ),
+                                ],
+                                titlesData: FlTitlesData(
+                                  show: true,
+                                  rightTitles: AxisTitles(),
+                                  topTitles: AxisTitles(),
+                                  bottomTitles: AxisTitles(
+                                    sideTitles: SideTitles(
+                                      showTitles: true,
+                                      reservedSize: 50,
+                                      interval: _calculateInterval(
+                                        chartMaxX - chartMinX,
+                                      ),
+                                      getTitlesWidget: (value, meta) {
+                                        final textValue = widget.reverseXAxis
+                                            ? (_maxXValue -
+                                                      (value - _minXValue))
+                                                  .toStringAsFixed(
+                                                    isNMR ? 2 : 1,
+                                                  )
+                                            : value.toStringAsFixed(
+                                                isNMR ? 2 : 1,
+                                              );
+                                        return Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 8.0,
+                                          ),
+                                          child: Text(
+                                            textValue,
+                                            style: theme.textTheme.bodySmall,
+                                          ),
+                                        );
+                                      },
                                     ),
-                                  ]),
-                                ]
-                              : [],
-                        ),
-                      ),
-                    ),
-                    // Zoom buttons
-                    Positioned(
-                      top: 16,
-                      right: 16,
-                      child: Column(
-                        children: [
-                          FloatingActionButton.small(
-                            heroTag: "zoomInBtn",
-                            onPressed: () => _zoomInX(0.8), // Zoom in by 20%
-                            child: const Icon(Icons.add),
+                                  ),
+                                  leftTitles: AxisTitles(
+                                    sideTitles: SideTitles(
+                                      showTitles: true,
+                                      reservedSize: 50,
+                                      interval: _calculateInterval(
+                                        chartMaxY - chartMinY,
+                                      ),
+                                      getTitlesWidget: (value, meta) {
+                                        
+                                        // Apply scientific notation for NMR if it's a large number
+                                        String displayedValue;
+                                        if (isNMR && value >= 1000000) { // Example threshold for scientific notation
+                                          displayedValue = value.toStringAsExponential(1); // 1 decimal place
+                                        } else {
+                                          displayedValue = value.toStringAsFixed(0);
+                                        }
+
+                                        return Column( // Wrapped with Column
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          crossAxisAlignment: CrossAxisAlignment.end, // Aligned to end
+                                          children: [
+                                            Text(
+                                              displayedValue, // Use displayedValue here
+                                              style: theme.textTheme.bodySmall,
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                                gridData: FlGridData(
+                                  show: true,
+                                  drawVerticalLine: true,
+                                  horizontalInterval: _calculateInterval(
+                                    chartMaxY - chartMinY,
+                                  ),
+                                  verticalInterval: _calculateInterval(
+                                    chartMaxX - chartMinX,
+                                  ),
+                                  getDrawingHorizontalLine: (value) => FlLine(
+                                    color: Colors.grey.withOpacity(0.3),
+                                    strokeWidth: 1,
+                                  ),
+                                  getDrawingVerticalLine: (value) => FlLine(
+                                    color: Colors.grey.withOpacity(0.3),
+                                    strokeWidth: 1,
+                                  ),
+                                ),
+                                borderData: FlBorderData(
+                                  show: true,
+                                  border: Border.all(
+                                    color: Colors.grey.withOpacity(0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                                showingTooltipIndicators: _peaks.isNotEmpty
+                                    ? [
+                                        ShowingTooltipIndicators([
+                                          LineBarSpot(
+                                            LineChartBarData(
+                                              spots: plotSpots,
+                                              isCurved: false,
+                                              color: Colors.blue,
+                                              barWidth: 1.5,
+                                              isStrokeCapRound: true,
+                                              belowBarData: BarAreaData(
+                                                show: false,
+                                              ),
+                                              dotData: FlDotData(show: false),
+                                            ),
+                                            _spectralData.indexWhere(
+                                              (p) =>
+                                                  p.massToCharge ==
+                                                  _peaks
+                                                      .firstWhere(
+                                                        (peak) =>
+                                                            peak.y ==
+                                                            _peaks
+                                                                .map((p) => p.y)
+                                                                .reduce(max),
+                                                      )
+                                                      .x,
+                                            ),
+                                            (() {
+                                              FlSpot originalPeak = _peaks
+                                                  .firstWhere(
+                                                    (peak) =>
+                                                        peak.y ==
+                                                        _peaks
+                                                            .map((p) => p.y)
+                                                            .reduce(max),
+                                                  );
+                                              double peakX = originalPeak.x;
+                                              double peakY = originalPeak.y;
+                                              if (widget.reverseXAxis) {
+                                                peakX =
+                                                    _maxXValue -
+                                                    (peakX - _minXValue);
+                                              }
+                                              if (widget.reverseYAxis) {
+                                                peakY =
+                                                    (_maxIntensity * 1.1) -
+                                                    peakY +
+                                                    0;
+                                              }
+                                              return FlSpot(peakX, peakY);
+                                            })(),
+                                          ),
+                                        ]),
+                                      ]
+                                    : [],
+                              ),
+                            ),
                           ),
-                          const SizedBox(height: 8),
-                          FloatingActionButton.small(
-                            heroTag: "zoomOutBtn",
-                            onPressed: () => _zoomOutX(0.8), // Zoom out by 20%
-                            child: const Icon(Icons.remove),
+                          // Zoom buttons
+                          Positioned(
+                            top: 16,
+                            right: 16,
+                            child: Column(
+                              children: [
+                                FloatingActionButton.small(
+                                  heroTag: "zoomInBtn",
+                                  onPressed: () => _zoomInX(0.8),
+                                  child: const Icon(Icons.add),
+                                ),
+                                const SizedBox(height: 8),
+                                FloatingActionButton.small(
+                                  heroTag: "zoomOutBtn",
+                                  onPressed: () => _zoomOutX(0.8),
+                                  child: const Icon(Icons.remove),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Positioned X-axis label
+                          Positioned(
+                            bottom: 4.0, // Adjust this value to move it up/down
+                            left: 0,
+                            right: 0,
+                            child: Align(
+                              alignment: Alignment.center,
+                              child: Text(
+                                isNMR ? 'Chemical Shift (ppm)' : 'Mass-to-Charge (m/z)',
+                                style: theme.textTheme.titleMedium,
+                              ),
+                            ),
+                          ),
+                          // Positioned Y-axis label (moved back inside Stack)
+                          Positioned(
+                            left: 4.0, // Adjust this value to move it left/right
+                            top: 0,
+                            bottom: 0,
+                            child: Align(
+                              alignment: Alignment.center,
+                              child: RotatedBox(
+                                quarterTurns: -1,
+                                child: Text(
+                                  'Relative Intensity',
+                                  style: theme.textTheme.titleMedium,
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -511,24 +596,17 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Slider(
               min: _minXValue,
-              max: _maxXValue - _visibleXRangeAtZoom, // Max value _currentMinX can reach
+              max: _maxXValue - _visibleXRangeAtZoom,
               value: _currentMinX,
               onChanged: (newValue) {
                 setState(() {
                   _currentMinX = newValue;
-                  _currentMaxX = newValue + _visibleXRangeAtZoom; // Maintain zoom level
+                  _currentMaxX = newValue + _visibleXRangeAtZoom;
                 });
               },
             ),
           ),
         const SizedBox(height: 16),
-        // Display axis labels and range information.
-        Text(
-          isNMR
-              ? 'Chemical Shift (ppm) vs Intensity'
-              : 'Mass-to-Charge (m/z) vs Relative Intensity',
-          style: theme.textTheme.titleMedium,
-        ),
         Text(
           'Range: ${_minXValue.toStringAsFixed(isNMR ? 2 : 4)} to '
           '${_maxXValue.toStringAsFixed(isNMR ? 2 : 4)} '
@@ -536,7 +614,7 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
           style: theme.textTheme.bodySmall,
         ),
         const SizedBox(height: 16),
-        // Buttons for axis reversal, now moved here
+        // Buttons for axis reversal
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
@@ -597,7 +675,6 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
                 onTap: () async {
                   if (doiValue != null && doiValue.isNotEmpty) {
                     final url = Uri.parse('https://doi.org/$doiValue');
-                    // Attempt to launch the URL. If it fails, show a SnackBar.
                     if (!await launchUrl(
                       url,
                       mode: LaunchMode.externalApplication,
