@@ -81,6 +81,10 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
   /// in the [AnalyteTable]. These analytes are then added to the [GlobalState].
   List<Analyte> _selectedAnalytes = [];
 
+  /// A list to hold all analytes from all fetched CRMs.
+  List<Analyte> _allAnalytes = [];
+
+
   @override
   void initState() {
     super.initState();
@@ -101,6 +105,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _crmItems = []; // Explicitly clear items at the start
       _selectedCrmId = null; // Clear previous selection
       _selectedDetail = null; // Clear previous detail
+      // _allAnalytes = []; // This is now initialized only on search
     });
 
     try {
@@ -142,6 +147,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _selectedCrmId = null; // Clear previous selection
       _selectedDetail = null; // Clear previous detail
       _crmItems = []; // Explicitly clear items at the start
+      _allAnalytes = []; // Clear all analytes when searching
     });
 
     try {
@@ -177,6 +183,27 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
         }
       }
 
+      // Fetch details for all items to populate _allAnalytes from search results
+      List<Analyte> tempAllAnalytes = [];
+      for (var item in combinedResults) {
+        try {
+          final detail = await _crmService.loadCrmDetail(item);
+          for (var analyte in detail.analyteData ?? []) { // Null-aware operator to prevent errors
+            tempAllAnalytes.add(Analyte(
+              name: analyte.name,
+              quantity: analyte.quantity,
+              value: analyte.value,
+              uncertainty: analyte.uncertainty,
+              unit: analyte.unit,
+              type: analyte.type,
+              crmName: detail.title, // Add CRM name to analyte
+            ));
+          }
+        } catch (detailError) {
+          debugPrint('Failed to load detail for CRM ${item.name}: $detailError');
+        }
+      }
+
       // Update state after all asynchronous operations are complete
       if (mounted) {
         setState(() {
@@ -184,6 +211,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
           // Ensure _crmItems contains only unique CrmItem objects based on their ID
           _crmItems = _crmItems.toSet().toList(); // Requires CrmItem to override == and hashCode
           _crmItems.sort((a, b) => a.name.compareTo(b.name)); // Sort by name for display
+          _allAnalytes = tempAllAnalytes; // Populate _allAnalytes here, after search
 
           if (_crmItems.isEmpty) {
             if (pubChemResult != null) {
@@ -365,12 +393,71 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                       ),
                     ),
                   // Conditional rendering for the dropdown or loading indicator
-                  if (_isLoading && _crmItems.isEmpty)
+                  if (_isLoading && _crmItems.isEmpty && !_initialLoadComplete)
                     const Center(
                       child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 20.0),
                         child: CircularProgressIndicator(),
                       ),
+                    )
+                  // Display all analytes table when search results are available and no CRM is selected
+                  else if (_crmItems.isNotEmpty && _selectedCrmId == null)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 16),
+                        const Text(
+                          'All Analytes Across CRMs:',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: DataTable(
+                            columns: const [
+                              DataColumn(label: Text('Analyte')),
+                              DataColumn(label: Text('Quantity')),
+                              DataColumn(label: Text('Value')),
+                              DataColumn(label: Text('Uncertainty')),
+                              DataColumn(label: Text('Unit')),
+                              DataColumn(label: Text('Type')),
+                              DataColumn(label: Text('CRM Name')), // New column
+                            ],
+                            rows: _allAnalytes.map((analyte) {
+                              return DataRow(
+                                cells: [
+                                  DataCell(Text(analyte.name)),
+                                  DataCell(Text(analyte.quantity)),
+                                  DataCell(Text(analyte.value)),
+                                  DataCell(Text(analyte.uncertainty)),
+                                  DataCell(Text(analyte.unit)),
+                                  DataCell(Text(analyte.type)),
+                                  DataCell(Text(analyte.crmName ?? 'N/A')), // Display CRM name
+                                ],
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        DropdownButtonFormField<String>(
+                          value: _selectedCrmId, // Use the ID as the value
+                          hint: const Text('Select a CRM'),
+                          items: _crmItems.map((item) { // Iterate over CrmItem objects
+                            return DropdownMenuItem<String>(
+                              value: item.id, // Use item.id as the unique value
+                              child: Text(item.name), // Display item.name
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            if (value != null) { // value is now the crmId
+                              _loadCrmDetail(value);
+                            }
+                          },
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
                     )
                   else if (_crmItems.isNotEmpty) // Display dropdown only if items are available
                     DropdownButtonFormField<String>(

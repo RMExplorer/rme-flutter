@@ -17,6 +17,9 @@ class Analyte {
   /// The type or category of the analyte.
   final String type;
 
+  /// The name of the CRM this analyte came from.
+  final String? crmName; // New field for CRM name
+
   /// Creates an [Analyte] instance.
   ///
   /// All parameters are required and define the properties of the analyte.
@@ -27,5 +30,29 @@ class Analyte {
     required this.uncertainty,
     required this.unit,
     required this.type,
+    this.crmName, // Initialize the new field
   });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Analyte &&
+          runtimeType == other.runtimeType &&
+          name == other.name &&
+          quantity == other.quantity &&
+          value == other.value &&
+          uncertainty == other.uncertainty &&
+          unit == other.unit &&
+          type == other.type &&
+          crmName == other.crmName; // Include crmName in equality check
+
+  @override
+  int get hashCode =>
+      name.hashCode ^
+      quantity.hashCode ^
+      value.hashCode ^
+      uncertainty.hashCode ^
+      unit.hashCode ^
+      type.hashCode ^
+      crmName.hashCode; // Include crmName in hash code
 }
