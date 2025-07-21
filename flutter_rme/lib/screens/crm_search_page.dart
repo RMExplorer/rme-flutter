@@ -13,6 +13,7 @@ import '../services/pubchem_service.dart';
 import '../widgets/analyte_table.dart';
 import '../global_state.dart';
 import '../models/pubchem_data.dart'; // Import PubChemData
+import '../widgets/all_analytes_table.dart'; // Import the new widget
 
 /// A StatefulWidget that provides a user interface for searching and
 /// interacting with Certified Reference Materials (CRMs).
@@ -65,6 +66,9 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
   /// A flag indicating whether data is currently being loaded from the services.
   bool _isLoading = false;
 
+  /// A flag indicating whether a search has been initiated and is currently loading.
+  bool _isSearching = false;
+
   /// A flag indicating whether the initial loading of CRMs has completed.
   /// Used to display a loading indicator only during the initial fetch.
   bool _initialLoadComplete = false;
@@ -83,7 +87,6 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
 
   /// A list to hold all analytes from all fetched CRMs.
   List<Analyte> _allAnalytes = [];
-
 
   @override
   void initState() {
@@ -105,7 +108,6 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _crmItems = []; // Explicitly clear items at the start
       _selectedCrmId = null; // Clear previous selection
       _selectedDetail = null; // Clear previous detail
-      // _allAnalytes = []; // This is now initialized only on search
     });
 
     try {
@@ -142,6 +144,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
   Future<void> _searchCrm(String query) async {
     setState(() {
       _isLoading = true;
+      _isSearching = true; // Set to true when search starts
       _hasError = false;
       _errorMessage = null;
       _selectedCrmId = null; // Clear previous selection
@@ -159,7 +162,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
         pubChemResult = await _pubChemService.getCompoundData(query);
         searchTerms.add(pubChemResult.name); // Add canonical name
         searchTerms.addAll(pubChemResult.synonyms); // Add synonyms
-            } catch (e) {
+      } catch (e) {
         // If PubChem lookup fails (e.g., query not found in PubChem),
         // we'll just proceed with the original query for the NRC search.
         debugPrint('PubChem lookup failed for "$query": $e');
@@ -188,19 +191,24 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       for (var item in combinedResults) {
         try {
           final detail = await _crmService.loadCrmDetail(item);
-          for (var analyte in detail.analyteData ?? []) { // Null-aware operator to prevent errors
-            tempAllAnalytes.add(Analyte(
-              name: analyte.name,
-              quantity: analyte.quantity,
-              value: analyte.value,
-              uncertainty: analyte.uncertainty,
-              unit: analyte.unit,
-              type: analyte.type,
-              crmName: detail.title, // Add CRM name to analyte
-            ));
+          for (var analyte in detail.analyteData ?? []) {
+            // Null-aware operator to prevent errors
+            tempAllAnalytes.add(
+              Analyte(
+                name: analyte.name,
+                quantity: analyte.quantity,
+                value: analyte.value,
+                uncertainty: analyte.uncertainty,
+                unit: analyte.unit,
+                type: analyte.type,
+                crmName: detail.title, // Add CRM name to analyte
+              ),
+            );
           }
         } catch (detailError) {
-          debugPrint('Failed to load detail for CRM ${item.name}: $detailError');
+          debugPrint(
+            'Failed to load detail for CRM ${item.name}: $detailError',
+          );
         }
       }
 
@@ -209,21 +217,33 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
         setState(() {
           _crmItems = combinedResults.toList();
           // Ensure _crmItems contains only unique CrmItem objects based on their ID
-          _crmItems = _crmItems.toSet().toList(); // Requires CrmItem to override == and hashCode
-          _crmItems.sort((a, b) => a.name.compareTo(b.name)); // Sort by name for display
-          _allAnalytes = tempAllAnalytes; // Populate _allAnalytes here, after search
+          _crmItems = _crmItems
+              .toSet()
+              .toList(); // Requires CrmItem to override == and hashCode
+          _crmItems.sort(
+            (a, b) => a.name.compareTo(b.name),
+          ); // Sort by name for display
+          _allAnalytes =
+              tempAllAnalytes; // Populate _allAnalytes here, after search
 
           if (_crmItems.isEmpty) {
             if (pubChemResult != null) {
-              _handleError('No CRMs found matching "$query" or its synonyms.', isWarning: true);
+              _handleError(
+                'No CRMs found matching "$query" or its synonyms.',
+                isWarning: true,
+              );
             } else {
               _handleError('No results found for "$query".', isWarning: true);
             }
           } else if (!foundAnyNrcResults && pubChemResult != null) {
             // This case means PubChem found something, but NRC didn't return any CRMs for any of the terms.
-            _handleError('No CRMs found matching "$query" or its synonyms.', isWarning: true);
+            _handleError(
+              'No CRMs found matching "$query" or its synonyms.',
+              isWarning: true,
+            );
           }
           _isLoading = false; // Set loading to false here
+          _isSearching = false; // Set to false when search ends
         });
       }
     } catch (e) {
@@ -231,6 +251,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
         setState(() {
           _handleError(e.toString());
           _isLoading = false; // Also set loading to false on error
+          _isSearching = false; // Also set to false on error
         });
       }
     }
@@ -353,7 +374,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('NRC CRM Digital Repository')),
-      body: _isLoading && !_initialLoadComplete
+      body: _isLoading && !_initialLoadComplete && !_isSearching
           // Display a circular progress indicator while initial data is loading.
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -366,7 +387,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                   TextField(
                     controller: _searchController,
                     decoration: const InputDecoration(
-                      labelText: 'Search CRMs',
+                      labelText: 'Search Analytes',
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -393,7 +414,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                       ),
                     ),
                   // Conditional rendering for the dropdown or loading indicator
-                  if (_isLoading && _crmItems.isEmpty && !_initialLoadComplete)
+                  if (_isSearching) // Show loading indicator specifically for search
                     const Center(
                       child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 20.0),
@@ -406,50 +427,22 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 16),
-                        const Text(
-                          'All Analytes Across CRMs:',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: DataTable(
-                            columns: const [
-                              DataColumn(label: Text('Analyte')),
-                              DataColumn(label: Text('Quantity')),
-                              DataColumn(label: Text('Value')),
-                              DataColumn(label: Text('Uncertainty')),
-                              DataColumn(label: Text('Unit')),
-                              DataColumn(label: Text('Type')),
-                              DataColumn(label: Text('CRM Name')), // New column
-                            ],
-                            rows: _allAnalytes.map((analyte) {
-                              return DataRow(
-                                cells: [
-                                  DataCell(Text(analyte.name)),
-                                  DataCell(Text(analyte.quantity)),
-                                  DataCell(Text(analyte.value)),
-                                  DataCell(Text(analyte.uncertainty)),
-                                  DataCell(Text(analyte.unit)),
-                                  DataCell(Text(analyte.type)),
-                                  DataCell(Text(analyte.crmName ?? 'N/A')), // Display CRM name
-                                ],
-                              );
-                            }).toList(),
-                          ),
-                        ),
+                        // Use the new AllAnalytesTable widget
+                        AllAnalytesTable(analytes: _allAnalytes),
                         const SizedBox(height: 24),
                         DropdownButtonFormField<String>(
                           value: _selectedCrmId, // Use the ID as the value
                           hint: const Text('Select a CRM'),
-                          items: _crmItems.map((item) { // Iterate over CrmItem objects
+                          items: _crmItems.map((item) {
+                            // Iterate over CrmItem objects
                             return DropdownMenuItem<String>(
                               value: item.id, // Use item.id as the unique value
                               child: Text(item.name), // Display item.name
                             );
                           }).toList(),
                           onChanged: (value) {
-                            if (value != null) { // value is now the crmId
+                            if (value != null) {
+                              // value is now the crmId
                               _loadCrmDetail(value);
                             }
                           },
@@ -459,18 +452,21 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                         ),
                       ],
                     )
-                  else if (_crmItems.isNotEmpty) // Display dropdown only if items are available
+                  else if (_crmItems
+                      .isNotEmpty) // Display dropdown only if items are available
                     DropdownButtonFormField<String>(
                       value: _selectedCrmId, // Use the ID as the value
                       hint: const Text('Select a CRM'),
-                      items: _crmItems.map((item) { // Iterate over CrmItem objects
+                      items: _crmItems.map((item) {
+                        // Iterate over CrmItem objects
                         return DropdownMenuItem<String>(
                           value: item.id, // Use item.id as the unique value
                           child: Text(item.name), // Display item.name
                         );
                       }).toList(),
                       onChanged: (value) {
-                        if (value != null) { // value is now the crmId
+                        if (value != null) {
+                          // value is now the crmId
                           _loadCrmDetail(value);
                         }
                       },
@@ -478,7 +474,9 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                         border: OutlineInputBorder(),
                       ),
                     )
-                  else if (!_isLoading && _crmItems.isEmpty && _initialLoadComplete)
+                  else if (!_isLoading &&
+                      _crmItems.isEmpty &&
+                      _initialLoadComplete)
                     // Display a message if no items are found after loading/searching
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 20.0),
