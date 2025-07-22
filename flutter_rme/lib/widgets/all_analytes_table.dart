@@ -33,6 +33,11 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
   /// Controller for the search text field.
   final TextEditingController _searchController = TextEditingController(); //
 
+  // Pagination related state variables
+  int _currentPage = 0; // The current page index
+  int _itemsPerPage = 50; // Number of items to display per page, now dynamic
+  final List<int> _availableItemsPerPage = [1, 5, 20, 50, 100]; // Options for items per page
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +51,7 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
   void _updateSearchText() {
     setState(() {
       _searchText = _searchController.text.toLowerCase(); //
+      _currentPage = 0; // Reset to the first page when search text changes
     });
   }
 
@@ -79,6 +85,7 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
 
       _sortColumnIndex = columnIndex;
       _sortAscending = ascending;
+      _currentPage = 0; // Reset to the first page after sorting
     });
   }
 
@@ -92,14 +99,10 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
   }
 
   /// Returns a filtered list of analytes based on the [_searchText].
-  ///
-  /// If [_searchText] is empty, the entire [_sortedAnalytes] list is returned.
-  /// Otherwise, it filters analytes whose name, quantity, value, uncertainty,
-  /// unit, or type contains the [_searchText] (case-insensitive).
   List<Analyte> get _filteredAnalytes {
-    if (_searchText.isEmpty) return _sortedAnalytes; //
     return _sortedAnalytes.where((a) {
-      return a.crmName?.toLowerCase().contains(_searchText) == true || // Added CRM name to filter
+      if (_searchText.isEmpty) return true;
+      return a.crmName?.toLowerCase().contains(_searchText) == true ||
           a.name.toLowerCase().contains(_searchText) ||
           a.quantity.toLowerCase().contains(_searchText) ||
           a.value.toLowerCase().contains(_searchText) ||
@@ -107,6 +110,20 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
           a.unit.toLowerCase().contains(_searchText) ||
           a.type.toLowerCase().contains(_searchText);
     }).toList();
+  }
+
+  /// Returns a filtered and paginated list of analytes based on the [_searchText] and [_currentPage].
+  List<Analyte> get _paginatedAnalytes {
+    final filtered = _filteredAnalytes; // Use the already filtered list
+    final startIndex = _currentPage * _itemsPerPage;
+    final endIndex = (startIndex + _itemsPerPage).clamp(0, filtered.length);
+    return filtered.sublist(startIndex, endIndex);
+  }
+
+  /// Returns the total number of pages based on the filtered analytes.
+  int get _totalPages {
+    final filteredCount = _filteredAnalytes.length; // Use the count of the filtered list
+    return (filteredCount / _itemsPerPage).ceil();
   }
 
   @override
@@ -122,14 +139,39 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
           ),
         ),
         const SizedBox(height: 8),
-        // Search text field for filtering analytes.
-        TextField(
-          controller: _searchController, //
-          decoration: const InputDecoration(
-            labelText: 'Filter analytes', //
-            prefixIcon: Icon(Icons.search), //
-            border: OutlineInputBorder(), //
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _searchController, //
+                decoration: const InputDecoration(
+                  labelText: 'Filter analytes', //
+                  prefixIcon: Icon(Icons.search), //
+                  border: OutlineInputBorder(), //
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            const Text('Items/page:'), // Title for the dropdown
+            const SizedBox(width: 8), 
+            DropdownButton<int>(
+              value: _itemsPerPage,
+              items: _availableItemsPerPage.map((int value) {
+                return DropdownMenuItem<int>(
+                  value: value,
+                  child: Text('$value'),
+                );
+              }).toList(),
+              onChanged: (int? newValue) {
+                if (newValue != null) {
+                  setState(() {
+                    _itemsPerPage = newValue;
+                    _currentPage = 0; // Reset to first page when items per page changes
+                  });
+                }
+              },
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         SingleChildScrollView(
@@ -204,7 +246,7 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
                 onSort: (i, asc) => _sort((a) => a.type, i, asc),
               ),
             ],
-            rows: _filteredAnalytes.map((analyte) { // Use _filteredAnalytes here
+            rows: _paginatedAnalytes.map((analyte) { // Use _paginatedAnalytes here
               return DataRow(
                 cells: [
                   DataCell(Text(analyte.crmName?.substring(0, 6) ?? 'N/A')),
@@ -218,6 +260,38 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
               );
             }).toList(),
           ),
+        ),
+        const SizedBox(height: 8),
+        _buildPaginationControls(), // Add pagination controls
+      ],
+    );
+  }
+
+  /// Builds the pagination controls (Previous, Next, and page number).
+  Widget _buildPaginationControls() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: _currentPage > 0
+              ? () {
+                  setState(() {
+                    _currentPage--;
+                  });
+                }
+              : null, // Disable if on the first page
+        ),
+        Text('Page ${_currentPage + 1} of $_totalPages'),
+        IconButton(
+          icon: const Icon(Icons.arrow_forward),
+          onPressed: _currentPage < _totalPages - 1
+              ? () {
+                  setState(() {
+                    _currentPage++;
+                  });
+                }
+              : null, // Disable if on the last page
         ),
       ],
     );
