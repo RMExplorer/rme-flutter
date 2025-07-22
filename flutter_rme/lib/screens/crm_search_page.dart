@@ -108,6 +108,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _crmItems = []; // Explicitly clear items at the start
       _selectedCrmId = null; // Clear previous selection
       _selectedDetail = null; // Clear previous detail
+      _allAnalytes = []; // Clear all analytes on initial load
     });
 
     try {
@@ -115,9 +116,34 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       final uniqueItems = fetchedItems.toSet().toList();
       uniqueItems.sort((a, b) => a.name.compareTo(b.name));
 
+      // Also fetch details for all initial items to populate _allAnalytes
+      List<Analyte> tempAllAnalytes = [];
+      for (var item in uniqueItems) {
+        try {
+          final detail = await _crmService.loadCrmDetail(item);
+          for (var analyte in detail.analyteData ?? []) {
+            tempAllAnalytes.add(
+              Analyte(
+                name: analyte.name,
+                quantity: analyte.quantity,
+                value: analyte.value,
+                uncertainty: analyte.uncertainty,
+                unit: analyte.unit,
+                type: analyte.type,
+                crmName: detail.title, // Add CRM name to analyte
+              ),
+            );
+          }
+        } catch (detailError) {
+          debugPrint('Failed to load detail for CRM ${item.name}: $detailError');
+        }
+      }
+
+
       if (mounted) {
         setState(() {
           _crmItems = uniqueItems;
+          _allAnalytes = tempAllAnalytes; // Populate _allAnalytes here
           _initialLoadComplete = true;
           _isLoading = false; // Set loading to false here
         });
@@ -150,7 +176,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _selectedCrmId = null; // Clear previous selection
       _selectedDetail = null; // Clear previous detail
       _crmItems = []; // Explicitly clear items at the start
-      _allAnalytes = []; // Clear all analytes when searching
+      _allAnalytes = []; // Clear all analytes when starting a new search
     });
 
     try {
@@ -370,6 +396,20 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
     context.read<GlobalState>().addAnalytes(newlySelected, data);
   }
 
+  /// Resets the CRM search page to its initial state,
+  /// clearing selected CRM details and showing the all analytes table.
+  void _resetToAllAnalytes() {
+    setState(() {
+      _selectedCrmId = null; // Clear the selected CRM ID
+      _selectedDetail = null; // Clear the detailed view
+      _errorMessage = null; // Clear any error messages
+      _hasError = false; // Clear error flag
+      _selectedAnalytes = []; // Clear any selected analytes within the detail view
+      // Do NOT clear _crmItems or _allAnalytes here.
+      // These lists should retain the results of the last search or initial load.
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -422,38 +462,50 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                       ),
                     )
                   // Display all analytes table when search results are available and no CRM is selected
-                  else if (_crmItems.isNotEmpty && _selectedCrmId == null)
+                  else if (_selectedCrmId == null) // Show AllAnalytesTable only if no specific CRM is selected
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 16),
-                        // Use the new AllAnalytesTable widget
-                        AllAnalytesTable(analytes: _allAnalytes),
-                        const SizedBox(height: 24),
-                        DropdownButtonFormField<String>(
-                          value: _selectedCrmId, // Use the ID as the value
-                          hint: const Text('Select a CRM'),
-                          items: _crmItems.map((item) {
-                            // Iterate over CrmItem objects
-                            return DropdownMenuItem<String>(
-                              value: item.id, // Use item.id as the unique value
-                              child: Text(item.name), // Display item.name
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            if (value != null) {
-                              // value is now the crmId
-                              _loadCrmDetail(value);
-                            }
-                          },
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
+                        if (_allAnalytes.isNotEmpty) ...[ // Only show table if there are analytes
+                          const SizedBox(height: 16),
+                          // Use the new AllAnalytesTable widget
+                          AllAnalytesTable(analytes: _allAnalytes),
+                          const SizedBox(height: 24),
+                        ],
+                        if (_crmItems.isNotEmpty) // Only show dropdown if there are CRMs
+                          DropdownButtonFormField<String>(
+                            value: _selectedCrmId, // Use the ID as the value
+                            hint: const Text('Select a CRM'),
+                            items: _crmItems.map((item) {
+                              // Iterate over CrmItem objects
+                              return DropdownMenuItem<String>(
+                                value: item.id, // Use item.id as the unique value
+                                child: Text(item.name), // Display item.name
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              if (value != null) {
+                                // value is now the crmId
+                                _loadCrmDetail(value);
+                              }
+                            },
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                            ),
                           ),
-                        ),
+                        if (_crmItems.isEmpty && _initialLoadComplete && !_isSearching)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 20.0),
+                            child: Center(
+                              child: Text(
+                                'No CRMs found. Try a different search.',
+                                style: TextStyle(fontStyle: FontStyle.italic),
+                              ),
+                            ),
+                          ),
                       ],
                     )
-                  else if (_crmItems
-                      .isNotEmpty) // Display dropdown only if items are available
+                  else if (_crmItems.isNotEmpty && _selectedCrmId != null) // Display dropdown if items are available and a CRM is selected
                     DropdownButtonFormField<String>(
                       value: _selectedCrmId, // Use the ID as the value
                       hint: const Text('Select a CRM'),
@@ -473,23 +525,16 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
                       ),
-                    )
-                  else if (!_isLoading &&
-                      _crmItems.isEmpty &&
-                      _initialLoadComplete)
-                    // Display a message if no items are found after loading/searching
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 20.0),
-                      child: Center(
-                        child: Text(
-                          'No CRMs found. Try a different search.',
-                          style: TextStyle(fontStyle: FontStyle.italic),
-                        ),
-                      ),
                     ),
                   const SizedBox(height: 24),
                   // Display selected CRM details if available.
                   if (_selectedDetail != null) ...[
+                    // "Back to All Analytes" button
+                    ElevatedButton(
+                      onPressed: _resetToAllAnalytes,
+                      child: const Text('Back to All Analytes'),
+                    ),
+                    const SizedBox(height: 16),
                     Text(
                       _selectedDetail!.title,
                       style: Theme.of(context).textTheme.headlineSmall,

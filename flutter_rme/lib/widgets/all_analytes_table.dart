@@ -36,7 +36,13 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
   // Pagination related state variables
   int _currentPage = 0; // The current page index
   int _itemsPerPage = 50; // Number of items to display per page, now dynamic
-  final List<int> _availableItemsPerPage = [1, 5, 20, 50, 100]; // Options for items per page
+  final List<int> _availableItemsPerPage = [
+    1,
+    5,
+    20,
+    50,
+    100,
+  ]; // Options for items per page
 
   @override
   void initState() {
@@ -122,7 +128,8 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
 
   /// Returns the total number of pages based on the filtered analytes.
   int get _totalPages {
-    final filteredCount = _filteredAnalytes.length; // Use the count of the filtered list
+    final filteredCount =
+        _filteredAnalytes.length; // Use the count of the filtered list
     return (filteredCount / _itemsPerPage).ceil();
   }
 
@@ -133,10 +140,7 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
       children: [
         const Text(
           'All Analytes Across CRMs:',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         Row(
@@ -153,7 +157,7 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
             ),
             const SizedBox(width: 16),
             const Text('Items/page:'), // Title for the dropdown
-            const SizedBox(width: 8), 
+            const SizedBox(width: 8),
             DropdownButton<int>(
               value: _itemsPerPage,
               items: _availableItemsPerPage.map((int value) {
@@ -166,7 +170,8 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
                 if (newValue != null) {
                   setState(() {
                     _itemsPerPage = newValue;
-                    _currentPage = 0; // Reset to first page when items per page changes
+                    _currentPage =
+                        0; // Reset to first page when items per page changes
                   });
                 }
               },
@@ -215,7 +220,11 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
                   ],
                 ),
                 // Sort by numerical value, treating unparseable values as negative infinity
-                onSort: (i, asc) => _sort((a) => double.tryParse(a.value) ?? double.negativeInfinity, i, asc),
+                onSort: (i, asc) => _sort(
+                  (a) => double.tryParse(a.value) ?? double.negativeInfinity,
+                  i,
+                  asc,
+                ),
               ),
               DataColumn(
                 label: Row(
@@ -225,7 +234,12 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
                   ],
                 ),
                 // Sort by numerical value, treating unparseable values as negative infinity
-                onSort: (i, asc) => _sort((a) => double.tryParse(a.uncertainty) ?? double.negativeInfinity, i, asc),
+                onSort: (i, asc) => _sort(
+                  (a) =>
+                      double.tryParse(a.uncertainty) ?? double.negativeInfinity,
+                  i,
+                  asc,
+                ),
               ),
               DataColumn(
                 label: Row(
@@ -246,10 +260,11 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
                 onSort: (i, asc) => _sort((a) => a.type, i, asc),
               ),
             ],
-            rows: _paginatedAnalytes.map((analyte) { // Use _paginatedAnalytes here
+            rows: _paginatedAnalytes.map((analyte) {
+              // Use _paginatedAnalytes here
               return DataRow(
                 cells: [
-                  DataCell(Text(analyte.crmName?.substring(0, 6) ?? 'N/A')),
+                  DataCell(Text(getCrmNameUntilColon(analyte.crmName))),
                   DataCell(Text(analyte.name)),
                   DataCell(Text(analyte.quantity)),
                   DataCell(Text(analyte.value)),
@@ -295,5 +310,18 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
         ),
       ],
     );
+  }
+}
+
+/// Extracts the CRM name from the given [crmName] string until the first colon.
+String getCrmNameUntilColon(String? crmName) {
+  if (crmName == null) {
+    return 'N/A';
+  }
+  final indexOfColon = crmName.indexOf(':');
+  if (indexOfColon != -1) {
+    return crmName.substring(0, indexOfColon);
+  } else {
+    return crmName;
   }
 }
