@@ -13,7 +13,7 @@ import '../services/pubchem_service.dart';
 import '../widgets/analyte_table.dart';
 import '../global_state.dart';
 import '../models/pubchem_data.dart'; // Import PubChemData
-import '../widgets/all_analytes_table.dart'; // Import the new widget
+import '../widgets/all_analytes_table.dart';
 
 /// A StatefulWidget that provides a user interface for searching and
 /// interacting with Certified Reference Materials (CRMs).
@@ -88,6 +88,9 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
   /// A list to hold all analytes from all fetched CRMs.
   List<Analyte> _allAnalytes = [];
 
+  /// A flag to indicate if a search has been performed.
+  bool _hasSearched = false;
+
   @override
   void initState() {
     super.initState();
@@ -109,6 +112,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _selectedCrmId = null; // Clear previous selection
       _selectedDetail = null; // Clear previous detail
       _allAnalytes = []; // Clear all analytes on initial load
+      _hasSearched = false; // Reset search flag
     });
 
     try {
@@ -116,34 +120,9 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       final uniqueItems = fetchedItems.toSet().toList();
       uniqueItems.sort((a, b) => a.name.compareTo(b.name));
 
-      // Also fetch details for all initial items to populate _allAnalytes
-      List<Analyte> tempAllAnalytes = [];
-      for (var item in uniqueItems) {
-        try {
-          final detail = await _crmService.loadCrmDetail(item);
-          for (var analyte in detail.analyteData ?? []) {
-            tempAllAnalytes.add(
-              Analyte(
-                name: analyte.name,
-                quantity: analyte.quantity,
-                value: analyte.value,
-                uncertainty: analyte.uncertainty,
-                unit: analyte.unit,
-                type: analyte.type,
-                crmName: detail.title, // Add CRM name to analyte
-              ),
-            );
-          }
-        } catch (detailError) {
-          debugPrint('Failed to load detail for CRM ${item.name}: $detailError');
-        }
-      }
-
-
       if (mounted) {
         setState(() {
           _crmItems = uniqueItems;
-          _allAnalytes = tempAllAnalytes; // Populate _allAnalytes here
           _initialLoadComplete = true;
           _isLoading = false; // Set loading to false here
         });
@@ -177,6 +156,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _selectedDetail = null; // Clear previous detail
       _crmItems = []; // Explicitly clear items at the start
       _allAnalytes = []; // Clear all analytes when starting a new search
+      _hasSearched = true; // Set to true after a search is initiated
     });
 
     try {
@@ -462,11 +442,12 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                       ),
                     )
                   // Display all analytes table when search results are available and no CRM is selected
-                  else if (_selectedCrmId == null) // Show AllAnalytesTable only if no specific CRM is selected
+                  else if (_hasSearched && _selectedCrmId == null) // Show AllAnalytesTable only if a search has been performed and no specific CRM is selected
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (_allAnalytes.isNotEmpty) ...[ // Only show table if there are analytes
+                        if (_allAnalytes.isNotEmpty) ...[
+                          // Only show table if there are analytes
                           const SizedBox(height: 16),
                           // Use the new AllAnalytesTable widget
                           AllAnalytesTable(analytes: _allAnalytes),
@@ -505,7 +486,28 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                           ),
                       ],
                     )
-                  else if (_crmItems.isNotEmpty && _selectedCrmId != null) // Display dropdown if items are available and a CRM is selected
+                  else if (!_hasSearched && _crmItems.isNotEmpty) // Show dropdown on initial load if no search yet and CRMs are available
+                    DropdownButtonFormField<String>(
+                      value: _selectedCrmId, // Use the ID as the value
+                      hint: const Text('Select a CRM'),
+                      items: _crmItems.map((item) {
+                        // Iterate over CrmItem objects
+                        return DropdownMenuItem<String>(
+                          value: item.id, // Use item.id as the unique value
+                          child: Text(item.name), // Display item.name
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          // value is now the crmId
+                          _loadCrmDetail(value);
+                        }
+                      },
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                      ),
+                    )
+                  else if (_selectedCrmId != null) // Display dropdown if items are available and a CRM is selected
                     DropdownButtonFormField<String>(
                       value: _selectedCrmId, // Use the ID as the value
                       hint: const Text('Select a CRM'),

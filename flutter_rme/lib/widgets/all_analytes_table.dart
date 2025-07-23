@@ -35,7 +35,7 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
 
   // Pagination related state variables
   int _currentPage = 0; // The current page index
-  int _itemsPerPage = 50; // Number of items to display per page, now dynamic
+  int _itemsPerPage = 20; // Number of items to display per page, now dynamic
   final List<int> _availableItemsPerPage = [
     1,
     5,
