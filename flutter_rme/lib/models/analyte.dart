@@ -20,6 +20,9 @@ class Analyte {
   /// The name of the CRM this analyte came from.
   final String? crmName; // New field for CRM name
 
+  /// The material type of the CRM this analyte came from.
+  final String? materialType; // New field for material type
+
   /// Creates an [Analyte] instance.
   ///
   /// All parameters are required and define the properties of the analyte.
@@ -31,6 +34,7 @@ class Analyte {
     required this.unit,
     required this.type,
     this.crmName, // Initialize the new field
+    this.materialType, // Initialize the new field
   });
 
   @override
@@ -44,7 +48,8 @@ class Analyte {
           uncertainty == other.uncertainty &&
           unit == other.unit &&
           type == other.type &&
-          crmName == other.crmName; // Include crmName in equality check
+          crmName == other.crmName && // Include crmName in equality check
+          materialType == other.materialType; // Include materialType in equality check
 
   @override
   int get hashCode =>
@@ -54,5 +59,6 @@ class Analyte {
       uncertainty.hashCode ^
       unit.hashCode ^
       type.hashCode ^
-      crmName.hashCode; // Include crmName in hash code
+      crmName.hashCode ^ // Include crmName in hash code
+      materialType.hashCode; // Include materialType in hash code
 }

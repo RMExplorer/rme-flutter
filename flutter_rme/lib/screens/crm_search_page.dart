@@ -208,6 +208,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                 unit: analyte.unit,
                 type: analyte.type,
                 crmName: detail.title, // Add CRM name to analyte
+                materialType: detail.materialType, // Pass materialType to Analyte
               ),
             );
           }

@@ -95,15 +95,6 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
     });
   }
 
-  /// Returns a generic sort icon if the column is not sorted.
-  /// This icon will be displayed alongside the column's text.
-  Widget _getUnsortedIcon(int columnIndex) {
-    if (_sortColumnIndex != columnIndex) {
-      return const Icon(Icons.unfold_more, size: 16.0); // Not sorted
-    }
-    return const SizedBox.shrink(); // Hide the icon if sorted, as DataTable provides its own
-  }
-
   /// Returns a filtered list of analytes based on the [_searchText].
   List<Analyte> get _filteredAnalytes {
     return _sortedAnalytes.where((a) {
@@ -114,7 +105,9 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
           a.value.toLowerCase().contains(_searchText) ||
           a.uncertainty.toLowerCase().contains(_searchText) ||
           a.unit.toLowerCase().contains(_searchText) ||
-          a.type.toLowerCase().contains(_searchText);
+          a.type.toLowerCase().contains(_searchText) ||
+          a.materialType?.toLowerCase().contains(_searchText) ==
+              true; // Add materialType to search
     }).toList();
   }
 
@@ -186,39 +179,24 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
             sortAscending: _sortAscending,
             columns: [
               DataColumn(
-                label: Row(
-                  children: [
-                    const Text('CRM'),
-                    _getUnsortedIcon(0), // Index for CRM column
-                  ],
-                ),
+                label: const Text('CRM'),
                 onSort: (i, asc) => _sort((a) => a.crmName ?? 'N/A', i, asc),
               ),
               DataColumn(
-                label: Row(
-                  children: [
-                    const Text('Analyte'),
-                    _getUnsortedIcon(1), // Index for Analyte column
-                  ],
-                ),
+                label: const Text('Analyte'),
                 onSort: (i, asc) => _sort((a) => a.name, i, asc),
               ),
               DataColumn(
-                label: Row(
-                  children: [
-                    const Text('Quantity'),
-                    _getUnsortedIcon(2), // Index for Quantity column
-                  ],
-                ),
+                label: const Text('Material Type'),
+                onSort: (i, asc) =>
+                    _sort((a) => a.materialType ?? 'N/A', i, asc),
+              ),
+              DataColumn(
+                label: const Text('Quantity'),
                 onSort: (i, asc) => _sort((a) => a.quantity, i, asc),
               ),
               DataColumn(
-                label: Row(
-                  children: [
-                    const Text('Value'),
-                    _getUnsortedIcon(3), // Index for Value column
-                  ],
-                ),
+                label: const Text('Value'),
                 // Sort by numerical value, treating unparseable values as negative infinity
                 onSort: (i, asc) => _sort(
                   (a) => double.tryParse(a.value) ?? double.negativeInfinity,
@@ -227,12 +205,7 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
                 ),
               ),
               DataColumn(
-                label: Row(
-                  children: [
-                    const Text('Uncertainty'),
-                    _getUnsortedIcon(4), // Index for Uncertainty column
-                  ],
-                ),
+                label: const Text('Uncertainty'), // Removed _getUnsortedIcon
                 // Sort by numerical value, treating unparseable values as negative infinity
                 onSort: (i, asc) => _sort(
                   (a) =>
@@ -242,21 +215,11 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
                 ),
               ),
               DataColumn(
-                label: Row(
-                  children: [
-                    const Text('Unit'),
-                    _getUnsortedIcon(5), // Index for Unit column
-                  ],
-                ),
+                label: const Text('Unit'), // Removed _getUnsortedIcon
                 onSort: (i, asc) => _sort((a) => a.unit, i, asc),
               ),
               DataColumn(
-                label: Row(
-                  children: [
-                    const Text('Type'),
-                    _getUnsortedIcon(6), // Index for Type column
-                  ],
-                ),
+                label: const Text('Type'), // Removed _getUnsortedIcon
                 onSort: (i, asc) => _sort((a) => a.type, i, asc),
               ),
             ],
@@ -266,6 +229,9 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
                 cells: [
                   DataCell(Text(getCrmNameUntilColon(analyte.crmName))),
                   DataCell(Text(analyte.name)),
+                  DataCell(
+                    Text(analyte.materialType ?? 'N/A'),
+                  ), // Display material type
                   DataCell(Text(analyte.quantity)),
                   DataCell(Text(analyte.value)),
                   DataCell(Text(analyte.uncertainty)),
