@@ -9,8 +9,15 @@ class AllAnalytesTable extends StatefulWidget {
   /// The list of [Analyte] objects to display in the table.
   final List<Analyte> analytes;
 
+  /// An optional initial search text to pre-populate the filter field.
+  final String initialSearchText; //
+
   /// Constructs an [AllAnalytesTable].
-  const AllAnalytesTable({super.key, required this.analytes});
+  const AllAnalytesTable({
+    super.key,
+    required this.analytes,
+    this.initialSearchText = '', //
+  });
 
   @override
   State<AllAnalytesTable> createState() => _AllAnalytesTableState();
@@ -28,10 +35,10 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
   late List<Analyte> _sortedAnalytes;
 
   /// The current text entered in the search bar, converted to lowercase.
-  String _searchText = ''; //
+  String _searchText = '';
 
   /// Controller for the search text field.
-  final TextEditingController _searchController = TextEditingController(); //
+  final TextEditingController _searchController = TextEditingController();
 
   // Pagination related state variables
   int _currentPage = 0; // The current page index
@@ -49,14 +56,15 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
     super.initState();
     // Initialize _sortedAnalytes with a copy of the provided analytes.
     _sortedAnalytes = List.from(widget.analytes);
-    // Add a listener to the search controller to update _searchText when its value changes.
-    _searchController.addListener(_updateSearchText); //
+    _searchController.text = widget.initialSearchText; // Initialize with passed search text
+    _searchController.addListener(_updateSearchText);
+    _updateSearchText(); // Apply initial filter based on initialSearchText
   }
 
   /// Updates the [_searchText] based on the current value of the [_searchController].
   void _updateSearchText() {
     setState(() {
-      _searchText = _searchController.text.toLowerCase(); //
+      _searchText = _searchController.text.toLowerCase();
       _currentPage = 0; // Reset to the first page when search text changes
     });
   }
@@ -64,8 +72,8 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
   @override
   void dispose() {
     // Remove the listener and dispose the search controller to prevent memory leaks.
-    _searchController.removeListener(_updateSearchText); //
-    _searchController.dispose(); //
+    _searchController.removeListener(_updateSearchText);
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -140,11 +148,11 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
           children: [
             Expanded(
               child: TextField(
-                controller: _searchController, //
+                controller: _searchController,
                 decoration: const InputDecoration(
-                  labelText: 'Filter analytes', //
-                  prefixIcon: Icon(Icons.search), //
-                  border: OutlineInputBorder(), //
+                  labelText: 'Filter analytes',
+                  prefixIcon: Icon(Icons.search),
+                  border: OutlineInputBorder(),
                 ),
               ),
             ),

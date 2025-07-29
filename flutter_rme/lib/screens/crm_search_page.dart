@@ -91,6 +91,11 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
   /// A flag to indicate if a search has been performed.
   bool _hasSearched = false;
 
+  // New state variables for "Did you mean?" functionality
+  String? _canonicalNameSuggestion;
+  String _lastSearchQuery = ''; // Store the last query to compare
+  bool _showDidYouMean = false;
+
   @override
   void initState() {
     super.initState();
@@ -157,21 +162,33 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _crmItems = []; // Explicitly clear items at the start
       _allAnalytes = []; // Clear all analytes when starting a new search
       _hasSearched = true; // Set to true after a search is initiated
+      _canonicalNameSuggestion = null; // Clear previous suggestion
+      _showDidYouMean = false; // Reset "Did you mean?" flag
+      _lastSearchQuery = query; // Store the current query
     });
 
     try {
       Set<String> searchTerms = {query}; // Start with the original query
       PubChemData? pubChemResult;
+      String? actualCanonicalName; // Variable to hold the canonical name found
 
       try {
         // Attempt to get PubChem data for the query
         pubChemResult = await _pubChemService.getCompoundData(query);
-        searchTerms.add(pubChemResult.name); // Add canonical name
+        actualCanonicalName = pubChemResult.name; // Get the canonical name
+        searchTerms.add(actualCanonicalName); // Add canonical name
         searchTerms.addAll(pubChemResult.synonyms); // Add synonyms
       } catch (e) {
         // If PubChem lookup fails (e.g., query not found in PubChem),
         // we'll just proceed with the original query for the NRC search.
         debugPrint('PubChem lookup failed for "$query": $e');
+      }
+
+      // Check if a canonical name was found and it's different from the original query
+      if (actualCanonicalName != null &&
+          actualCanonicalName.toLowerCase() != query.toLowerCase()) {
+        _canonicalNameSuggestion = actualCanonicalName;
+        _showDidYouMean = true;
       }
 
       Set<CrmItem> combinedResults = {};
@@ -391,6 +408,23 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
     });
   }
 
+  /// Handles the action when the "Did you mean?" suggestion is tapped.
+  /// It updates the search controller with the canonical name and triggers
+  /// a re-filtering of the analytes table.
+  void _onDidYouMeanTapped() {
+    if (_canonicalNameSuggestion != null) {
+      // Create a temporary controller and set its text to the canonical name.
+      // We'll pass this text directly to AllAnalytesTable.
+      // The AllAnalytesTable will handle its own _searchController initialization.
+      setState(() {
+        _showDidYouMean = false; // Hide the suggestion after it's used
+        _lastSearchQuery = _canonicalNameSuggestion!; // Update last search query to apply the new filter
+      });
+      // The AllAnalytesTable will be rebuilt with this new initialSearchText
+      // when _selectedCrmId is null (meaning we're showing all analytes).
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -434,6 +468,34 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                         ),
                       ),
                     ),
+                  // Display "Did you mean?" suggestion
+                  if (_showDidYouMean && _canonicalNameSuggestion != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Row(
+                        children: [
+                          const Text(
+                            'Did you mean: ',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                          GestureDetector(
+                            onTap: _onDidYouMeanTapped,
+                            child: Text(
+                              _canonicalNameSuggestion!,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Colors.blue,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                          const Text(
+                            '?',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                        ],
+                      ),
+                    ),
                   // Conditional rendering for the dropdown or loading indicator
                   if (_isSearching) // Show loading indicator specifically for search
                     const Center(
@@ -451,7 +513,15 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                           // Only show table if there are analytes
                           const SizedBox(height: 16),
                           // Use the new AllAnalytesTable widget
-                          AllAnalytesTable(analytes: _allAnalytes),
+                          AllAnalytesTable(
+                            analytes: _allAnalytes,
+                            // Pass the canonical name if available and different from the original query,
+                            // otherwise pass the original query.
+                            initialSearchText: _showDidYouMean &&
+                                    _canonicalNameSuggestion != null
+                                ? _canonicalNameSuggestion!
+                                : _lastSearchQuery,
+                          ),
                           const SizedBox(height: 24),
                         ],
                         if (_crmItems.isNotEmpty) // Only show dropdown if there are CRMs
