@@ -14,6 +14,7 @@ import '../widgets/analyte_table.dart';
 import '../global_state.dart';
 import '../models/pubchem_data.dart'; // Import PubChemData
 import '../widgets/all_analytes_table.dart';
+import '../widgets/animated_loader.dart'; // Import the AnimatedLoader widget
 
 /// A StatefulWidget that provides a user interface for searching and
 /// interacting with Certified Reference Materials (CRMs).
@@ -430,8 +431,8 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('NRC CRM Digital Repository')),
       body: _isLoading && !_initialLoadComplete && !_isSearching
-          // Display a circular progress indicator while initial data is loading.
-          ? const Center(child: CircularProgressIndicator())
+          // Display the AnimatedLoader while initial data is loading.
+          ? const Center(child: AnimatedLoader())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -497,11 +498,11 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                       ),
                     ),
                   // Conditional rendering for the dropdown or loading indicator
-                  if (_isSearching) // Show loading indicator specifically for search
+                  if (_isSearching) // Show AnimatedLoader specifically for search
                     const Center(
                       child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 20.0),
-                        child: CircularProgressIndicator(),
+                        child: AnimatedLoader(), // Replaced CircularProgressIndicator
                       ),
                     )
                   // Display all analytes table when search results are available and no CRM is selected
