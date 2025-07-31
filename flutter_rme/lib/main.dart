@@ -47,14 +47,38 @@ class NrcCrmApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'NRC CRM Digital Repository', // The title of the application shown in the task switcher.
-      theme: ThemeData(
-        primarySwatch: Colors.blue, // Defines the primary color palette for the app.
-        // Determines how the UI should adapt to different screen densities.
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
-      home: const MainNavigationWrapper(), // The initial screen of the application.
+    return Consumer<GlobalState>(
+      builder: (context, globalState, child) {
+        return MaterialApp(
+          title: 'NRC CRM Digital Repository', // The title of the application shown in the task switcher.
+          // Define your light theme
+          theme: ThemeData(
+            brightness: Brightness.light,
+            primarySwatch: Colors.blue, // Defines the primary color palette for the app.
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black,
+            ),
+            scaffoldBackgroundColor: Colors.white,
+            visualDensity: VisualDensity.adaptivePlatformDensity,
+          ),
+          // Define your dark theme
+          darkTheme: ThemeData(
+            brightness: Brightness.dark,
+            primarySwatch: Colors.indigo, // A different primary for dark mode
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.white,
+            ),
+            scaffoldBackgroundColor: Colors.grey[900],
+            visualDensity: VisualDensity.adaptivePlatformDensity,
+          ),
+          // Specify when to use dark theme (system preference)
+          themeMode: globalState.themeMode, // Use the themeMode from GlobalState
+
+          home: const MainNavigationWrapper(), // The initial screen of the application.
+        );
+      },
     );
   }
 }
@@ -86,13 +110,19 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
 
   @override
   Widget build(BuildContext context) {
+    // Get the current theme to adjust BottomNavigationBar colors
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
     return Scaffold(
       // IndexedStack only builds the child corresponding to the current index,
       // preserving the state of inactive children.
       body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
-        selectedItemColor: Colors.deepPurple, // Color of the icon and label for the selected item.
-        unselectedItemColor: Colors.grey, // Color for unselected items.
+        // Adjust colors based on theme
+        selectedItemColor: isDarkMode ? Colors.tealAccent : Colors.deepPurple,
+        unselectedItemColor: isDarkMode ? Colors.grey[600] : Colors.grey,
+        backgroundColor: isDarkMode ? Colors.grey[850] : null, // Default if null for light mode
         currentIndex: _currentIndex, // The index of the currently active item.
         onTap: (index) {
           // Callback when a tab is tapped. Updates the current index to switch pages.
