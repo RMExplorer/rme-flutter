@@ -14,7 +14,7 @@ import '../widgets/analyte_table.dart';
 import '../global_state.dart';
 import '../models/pubchem_data.dart'; // Import PubChemData
 import '../widgets/all_analytes_table.dart';
-import '../widgets/animated_loader.dart'; // Import the AnimatedLoader widget
+import '../ui_elements/animated_loader.dart';
 
 /// A StatefulWidget that provides a user interface for searching and
 /// interacting with Certified Reference Materials (CRMs).
