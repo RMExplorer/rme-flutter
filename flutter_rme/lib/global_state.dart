@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart'; // Import for ThemeMode
 import 'package:flutter_rme/models/pubchem_data.dart';
 import '../models/analyte.dart';
@@ -15,7 +14,9 @@ class GlobalState with ChangeNotifier {
   ThemeMode get themeMode => _themeMode;
 
   void toggleTheme() {
-    _themeMode = _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+    _themeMode = _themeMode == ThemeMode.light
+        ? ThemeMode.dark
+        : ThemeMode.light;
     notifyListeners(); // Notify listeners that the theme has changed
   }
 
@@ -51,7 +52,9 @@ class GlobalState with ChangeNotifier {
   void removeAnalytes(List<Analyte> analytesToRemove) {
     for (var analyte in analytesToRemove) {
       _selectedAnalytes.removeWhere((a) => a.name == analyte.name);
-      _pubChemData.removeWhere((d) => d.name == analyte.name); // Match by name or ID
+      _pubChemData.removeWhere(
+        (d) => d.name == analyte.name,
+      ); // Match by name or ID
     }
     notifyListeners();
   }

@@ -88,7 +88,7 @@ class _AnimatedLoaderState extends State<AnimatedLoader> with SingleTickerProvid
     const double singleWordHeight = 40.0;
 
     // Helper function to create a word widget with consistent styling and height.
-    Widget _buildWord(String text) {
+    Widget buildWord(String text) {
       return SizedBox(
         height: singleWordHeight,
         child: Align(
@@ -145,11 +145,11 @@ class _AnimatedLoaderState extends State<AnimatedLoader> with SingleTickerProvid
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildWord(words[0]), // buttons (initial)
-                              _buildWord(words[1]), // forms
-                              _buildWord(words[2]), // switches
-                              _buildWord(words[3]), // cards
-                              _buildWord(words[0]), // buttons (duplicated for seamless loop)
+                              buildWord(words[0]), // buttons (initial)
+                              buildWord(words[1]), // forms
+                              buildWord(words[2]), // switches
+                              buildWord(words[3]), // cards
+                              buildWord(words[0]), // buttons (duplicated for seamless loop)
                             ],
                           ),
                         );

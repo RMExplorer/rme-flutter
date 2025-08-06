@@ -211,7 +211,7 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
                         children: [
                           Container(
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: theme.cardColor, // Changed from Colors.white
                               borderRadius: BorderRadius.circular(8),
                               boxShadow: const [
                                 BoxShadow(
@@ -463,7 +463,7 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: Theme.of(context).cardColor, // Changed from Colors.grey[100]
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
