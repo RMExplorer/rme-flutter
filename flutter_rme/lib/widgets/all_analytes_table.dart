@@ -1,22 +1,30 @@
 // File: all_analytes_table.dart
 import 'package:flutter/material.dart';
-import '../models/analyte.dart'; // Import the Analyte model
+import '../models/analyte.dart';
 
 /// A StatefulWidget that displays a table of all analytes across CRMs.
-/// This widget allows users to view a list of analytes and sort them by
-/// different columns.
+/// This widget allows users to view a list of analytes, sort them by
+/// different columns, filter them, and select multiple analytes.
 class AllAnalytesTable extends StatefulWidget {
   /// The list of [Analyte] objects to display in the table.
   final List<Analyte> analytes;
 
   /// An optional initial search text to pre-populate the filter field.
-  final String initialSearchText; //
+  final String initialSearchText;
+
+  /// A callback function that is invoked when the selection of analytes changes.
+  final void Function(List<Analyte>)? onSelectionChanged;
+
+  /// The list of currently selected analytes, passed from a parent widget.
+  final List<Analyte> selectedAnalytes;
 
   /// Constructs an [AllAnalytesTable].
   const AllAnalytesTable({
     super.key,
     required this.analytes,
-    this.initialSearchText = '', //
+    this.initialSearchText = '',
+    this.onSelectionChanged,
+    this.selectedAnalytes = const [],
   });
 
   @override
@@ -40,39 +48,33 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
   /// Controller for the search text field.
   final TextEditingController _searchController = TextEditingController();
 
+  // The list of currently selected analytes is now managed by the parent.
+  // The state variable has been removed.
+
   // Pagination related state variables
-  int _currentPage = 0; // The current page index
-  int _itemsPerPage = 20; // Number of items to display per page, now dynamic
-  final List<int> _availableItemsPerPage = [
-    1,
-    5,
-    20,
-    50,
-    100,
-  ]; // Options for items per page
+  int _currentPage = 0;
+  int _itemsPerPage = 20;
+  final List<int> _availableItemsPerPage = [1, 5, 20, 50, 100];
 
   @override
   void initState() {
     super.initState();
-    // Initialize _sortedAnalytes with a copy of the provided analytes.
     _sortedAnalytes = List.from(widget.analytes);
-    _searchController.text =
-        widget.initialSearchText; // Initialize with passed search text
+    _searchController.text = widget.initialSearchText;
     _searchController.addListener(_updateSearchText);
-    _updateSearchText(); // Apply initial filter based on initialSearchText
+    _updateSearchText();
   }
 
   /// Updates the [_searchText] based on the current value of the [_searchController].
   void _updateSearchText() {
     setState(() {
       _searchText = _searchController.text.toLowerCase();
-      _currentPage = 0; // Reset to the first page when search text changes
+      _currentPage = 0;
     });
   }
 
   @override
   void dispose() {
-    // Remove the listener and dispose the search controller to prevent memory leaks.
     _searchController.removeListener(_updateSearchText);
     _searchController.dispose();
     super.dispose();
@@ -80,10 +82,6 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
 
   /// Sorts the [_sortedAnalytes] list based on the specified [getField] function,
   /// [columnIndex], and [ascending] order.
-  ///
-  /// [getField] A function that extracts a comparable value from an [Analyte] object.
-  /// [columnIndex] The index of the column that is being sorted.
-  /// [ascending] A boolean indicating whether the sort order should be ascending.
   void _sort<T>(
     Comparable<T> Function(Analyte analyte) getField,
     int columnIndex,
@@ -100,7 +98,7 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
 
       _sortColumnIndex = columnIndex;
       _sortAscending = ascending;
-      _currentPage = 0; // Reset to the first page after sorting
+      _currentPage = 0;
     });
   }
 
@@ -115,14 +113,13 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
           a.uncertainty.toLowerCase().contains(_searchText) ||
           a.unit.toLowerCase().contains(_searchText) ||
           a.type.toLowerCase().contains(_searchText) ||
-          a.materialType?.toLowerCase().contains(_searchText) ==
-              true; // Add materialType to search
+          a.materialType?.toLowerCase().contains(_searchText) == true;
     }).toList();
   }
 
-  /// Returns a filtered and paginated list of analytes based on the [_searchText] and [_currentPage].
+  /// Returns a filtered and paginated list of analytes.
   List<Analyte> get _paginatedAnalytes {
-    final filtered = _filteredAnalytes; // Use the already filtered list
+    final filtered = _filteredAnalytes;
     final startIndex = _currentPage * _itemsPerPage;
     final endIndex = (startIndex + _itemsPerPage).clamp(0, filtered.length);
     return filtered.sublist(startIndex, endIndex);
@@ -130,13 +127,27 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
 
   /// Returns the total number of pages based on the filtered analytes.
   int get _totalPages {
-    final filteredCount =
-        _filteredAnalytes.length; // Use the count of the filtered list
+    final filteredCount = _filteredAnalytes.length;
     return (filteredCount / _itemsPerPage).ceil();
   }
 
+  /// Toggles the selection status of an [analyte].
+  void _toggleSelection(Analyte analyte) {
+    List<Analyte> newSelection = List.from(widget.selectedAnalytes);
+    if (newSelection.contains(analyte)) {
+      newSelection.remove(analyte);
+    } else {
+      newSelection.add(analyte);
+    }
+    widget.onSelectionChanged?.call(newSelection);
+  }
+
+  /// Checks if an [analyte] is currently selected.
+  bool _isSelected(Analyte analyte) {
+    return widget.selectedAnalytes.contains(analyte);
+  }
+
   /// A helper function to parse the value string into a double for sorting.
-  /// It removes '<' and '+' signs before attempting to parse.
   double _parseValue(String value) {
     final cleanedValue = value.replaceAll(RegExp(r'[<+]'), '');
     return double.tryParse(cleanedValue) ?? double.negativeInfinity;
@@ -149,7 +160,6 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
       children: [
         Text(title),
         const SizedBox(width: 4),
-        // Show icon only if the column is not sorted
         if (_sortColumnIndex != columnIndex)
           Icon(
             Icons.unfold_more,
@@ -183,7 +193,7 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
               ),
             ),
             const SizedBox(width: 16),
-            const Text('Items/page:'), // Title for the dropdown
+            const Text('Items/page:'),
             const SizedBox(width: 8),
             DropdownButton<int>(
               value: _itemsPerPage,
@@ -197,8 +207,7 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
                 if (newValue != null) {
                   setState(() {
                     _itemsPerPage = newValue;
-                    _currentPage =
-                        0; // Reset to first page when items per page changes
+                    _currentPage = 0;
                   });
                 }
               },
@@ -252,7 +261,10 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
               ),
             ],
             rows: _paginatedAnalytes.map((analyte) {
+              final isSelected = _isSelected(analyte);
               return DataRow(
+                selected: isSelected,
+                onSelectChanged: (_) => _toggleSelection(analyte),
                 cells: [
                   DataCell(Text(getCrmNameUntilColon(analyte.crmName))),
                   DataCell(Text(analyte.name)),

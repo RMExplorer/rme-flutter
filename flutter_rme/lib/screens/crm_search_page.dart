@@ -82,9 +82,9 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
   /// be displayed prominently (e.g., in red text).
   bool _hasError = false;
 
-  /// A list of [Analyte] objects that are currently selected by the user
-  /// in the [AnalyteTable]. These analytes are then added to the [GlobalState].
-  List<Analyte> _selectedAnalytes = [];
+  // The local _selectedAnalytes state variable is no longer needed,
+  // as selection is now managed by GlobalState.
+  // List<Analyte> _selectedAnalytes = [];
 
   /// A list to hold all analytes from all fetched CRMs.
   List<Analyte> _allAnalytes = [];
@@ -347,12 +347,13 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
   /// It pushes a new route to display the properties of the first analyte
   /// in the [_selectedAnalytes] list.
   void _navigateToPropertiesPage() {
-    if (_selectedAnalytes.isNotEmpty) {
+    final selectedAnalytes = context.read<GlobalState>().selectedAnalytes;
+    if (selectedAnalytes.isNotEmpty) {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) =>
-              PropertiesPage(selectedAnalyte: _selectedAnalytes[0].name),
+              PropertiesPage(selectedAnalyte: selectedAnalytes[0].name),
         ),
       );
     }
@@ -364,12 +365,13 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
   /// It pushes a new route to display the spectrum of the first analyte
   /// in the [_selectedAnalytes] list.
   void _navigateToSpectrumPage() {
-    if (_selectedAnalytes.isNotEmpty) {
+    final selectedAnalytes = context.read<GlobalState>().selectedAnalytes;
+    if (selectedAnalytes.isNotEmpty) {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) =>
-              SpectrumPage(selectedAnalyte: _selectedAnalytes[0].name),
+              SpectrumPage(selectedAnalyte: selectedAnalytes[0].name),
         ),
       );
     }
@@ -403,7 +405,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _selectedDetail = null; // Clear the detailed view
       _errorMessage = null; // Clear any error messages
       _hasError = false; // Clear error flag
-      _selectedAnalytes = []; // Clear any selected analytes within the detail view
+      // We don't clear _selectedAnalytes here as it's now managed by GlobalState.
       // Do NOT clear _crmItems or _allAnalytes here.
       // These lists should retain the results of the last search or initial load.
     });
@@ -419,7 +421,8 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       // The AllAnalytesTable will handle its own _searchController initialization.
       setState(() {
         _showDidYouMean = false; // Hide the suggestion after it's used
-        _lastSearchQuery = _canonicalNameSuggestion!; // Update last search query to apply the new filter
+        _lastSearchQuery =
+            _canonicalNameSuggestion!; // Update last search query to apply the new filter
       });
       // The AllAnalytesTable will be rebuilt with this new initialSearchText
       // when _selectedCrmId is null (meaning we're showing all analytes).
@@ -428,6 +431,9 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Use a watch to trigger a rebuild when GlobalState.selectedAnalytes changes
+    final globalState = context.watch<GlobalState>();
+
     return Scaffold(
       appBar: AppBar(title: const Text('NRC CRM Digital Repository')),
       body: _isLoading && !_initialLoadComplete && !_isSearching
@@ -516,12 +522,32 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                           // Use the new AllAnalytesTable widget
                           AllAnalytesTable(
                             analytes: _allAnalytes,
-                            // Pass the canonical name if available and different from the original query,
-                            // otherwise pass the original query.
                             initialSearchText: _showDidYouMean &&
                                     _canonicalNameSuggestion != null
                                 ? _canonicalNameSuggestion!
                                 : _lastSearchQuery,
+                            selectedAnalytes: globalState.selectedAnalytes,
+                            onSelectionChanged: (newSelection) {
+                              final previousSelection = globalState.selectedAnalytes;
+
+                              // Find added analytes
+                              final addedAnalytes = newSelection.where(
+                                (a) => !previousSelection.any((b) => b.name == a.name),
+                              ).toList();
+                              
+                              // Find removed analytes
+                              final removedAnalytes = previousSelection.where(
+                                (a) => !newSelection.any((b) => b.name == a.name),
+                              ).toList();
+
+                              if (addedAnalytes.isNotEmpty) {
+                                _handleNewlySelectedAnalytes(addedAnalytes, context);
+                              }
+
+                              if (removedAnalytes.isNotEmpty) {
+                                globalState.removeAnalytes(removedAnalytes);
+                              }
+                            },
                           ),
                           const SizedBox(height: 24),
                         ],
@@ -657,16 +683,24 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                     AnalyteTable(
                       analytes: _selectedDetail!.analyteData,
                       onSelectionChanged: (selected) {
-                        final previousSelection = _selectedAnalytes;
-                        setState(() => _selectedAnalytes = selected);
+                        final previousSelection = globalState.selectedAnalytes;
 
                         // Calculate newly added items to fetch PubChem data only for new selections.
                         final newlySelected = selected
-                            .where((item) => !previousSelection.contains(item))
+                            .where((item) => !previousSelection.any((a) => a.name == item.name))
+                            .toList();
+
+                        // Calculate removed items to remove them from global state
+                        final removedAnalytes = previousSelection
+                            .where((item) => !selected.any((a) => a.name == item.name))
                             .toList();
 
                         if (newlySelected.isNotEmpty) {
                           _handleNewlySelectedAnalytes(newlySelected, context);
+                        }
+
+                        if (removedAnalytes.isNotEmpty) {
+                          globalState.removeAnalytes(removedAnalytes);
                         }
                       },
                     ),
@@ -674,7 +708,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                     const SizedBox(height: 16),
                     // Button to navigate to the properties page for selected analytes.
                     ElevatedButton(
-                      onPressed: _selectedAnalytes.isNotEmpty
+                      onPressed: globalState.selectedAnalytes.isNotEmpty
                           ? _navigateToPropertiesPage
                           : null, // Button is disabled if no analytes are selected.
                       child: const Text('View Selected Properties'),
@@ -683,7 +717,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                     const SizedBox(height: 8),
                     // Button to navigate to the spectrum page for selected analytes.
                     ElevatedButton(
-                      onPressed: _selectedAnalytes.isNotEmpty
+                      onPressed: globalState.selectedAnalytes.isNotEmpty
                           ? _navigateToSpectrumPage
                           : null, // Button is disabled if no analytes are selected.
                       child: const Text('View Selected Spectrum'),
