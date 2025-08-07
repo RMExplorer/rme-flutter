@@ -140,6 +140,25 @@ class _AnalyteTableState extends State<AnalyteTable> {
     return _selectedAnalytes.contains(analyte);
   }
 
+  /// A helper function to parse the value string into a double for sorting.
+  /// It removes '<' and '+' signs before attempting to parse.
+  double _parseValue(String value) {
+    final cleanedValue = value.replaceAll(RegExp(r'[<+]'), '');
+    return double.tryParse(cleanedValue) ?? double.negativeInfinity;
+  }
+
+  /// Gets the sorting icon for a given column.
+  Widget? _getSortIcon(int columnIndex) {
+  if (_sortColumnIndex != columnIndex) {
+    return const Icon(
+      Icons.unfold_more,
+      size: 16,
+    );
+  }
+  return null;
+}
+
+
   @override
   Widget build(BuildContext context) {
     // If there are no analytes, return an empty SizedBox to occupy no space.
@@ -175,27 +194,27 @@ class _AnalyteTableState extends State<AnalyteTable> {
             sortAscending: _sortAscending,
             columns: [
               DataColumn(
-                label: const Text('Analyte'),
+                label: Row(children: [const Text('Analyte'), ?_getSortIcon(0)]),
                 onSort: (i, asc) => _sort((a) => a.name, i, asc),
               ),
               DataColumn(
-                label: const Text('Quantity'),
+                label: Row(children: [const Text('Quantity'), ?_getSortIcon(1)]),
                 onSort: (i, asc) => _sort((a) => a.quantity, i, asc),
               ),
               DataColumn(
-                label: const Text('Value'),
-                onSort: (i, asc) => _sort((a) => a.value, i, asc),
+                label: Row(children: [const Text('Value'), ?_getSortIcon(2)]),
+                onSort: (i, asc) => _sort((a) => _parseValue(a.value), i, asc),
               ),
               DataColumn(
-                label: const Text('Uncertainty'),
+                label: Row(children: [const Text('Uncertainty'), ?_getSortIcon(3)]),
                 onSort: (i, asc) => _sort((a) => a.uncertainty, i, asc),
               ),
               DataColumn(
-                label: const Text('Unit'),
+                label: Row(children: [const Text('Unit'), ?_getSortIcon(4)]),
                 onSort: (i, asc) => _sort((a) => a.unit, i, asc),
               ),
               DataColumn(
-                label: const Text('Type'),
+                label: Row(children: [const Text('Type'), ?_getSortIcon(5)]),
                 onSort: (i, asc) => _sort((a) => a.type, i, asc),
               ),
             ],

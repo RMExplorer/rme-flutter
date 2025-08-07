@@ -56,7 +56,8 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
     super.initState();
     // Initialize _sortedAnalytes with a copy of the provided analytes.
     _sortedAnalytes = List.from(widget.analytes);
-    _searchController.text = widget.initialSearchText; // Initialize with passed search text
+    _searchController.text =
+        widget.initialSearchText; // Initialize with passed search text
     _searchController.addListener(_updateSearchText);
     _updateSearchText(); // Apply initial filter based on initialSearchText
   }
@@ -134,6 +135,31 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
     return (filteredCount / _itemsPerPage).ceil();
   }
 
+  /// A helper function to parse the value string into a double for sorting.
+  /// It removes '<' and '+' signs before attempting to parse.
+  double _parseValue(String value) {
+    final cleanedValue = value.replaceAll(RegExp(r'[<+]'), '');
+    return double.tryParse(cleanedValue) ?? double.negativeInfinity;
+  }
+
+  /// Builds a sortable column header with the correct sorting icon.
+  Widget _buildSortableHeader(String title, int columnIndex) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: [
+        Text(title),
+        const SizedBox(width: 4),
+        // Show icon only if the column is not sorted
+        if (_sortColumnIndex != columnIndex)
+          Icon(
+            Icons.unfold_more,
+            size: 16,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -187,34 +213,28 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
             sortAscending: _sortAscending,
             columns: [
               DataColumn(
-                label: const Text('CRM'),
+                label: _buildSortableHeader('CRM', 0),
                 onSort: (i, asc) => _sort((a) => a.crmName ?? 'N/A', i, asc),
               ),
               DataColumn(
-                label: const Text('Analyte'),
+                label: _buildSortableHeader('Analyte', 1),
                 onSort: (i, asc) => _sort((a) => a.name, i, asc),
               ),
               DataColumn(
-                label: const Text('Material Type'),
+                label: _buildSortableHeader('Material Type', 2),
                 onSort: (i, asc) =>
                     _sort((a) => a.materialType ?? 'N/A', i, asc),
               ),
               DataColumn(
-                label: const Text('Quantity'),
+                label: _buildSortableHeader('Quantity', 3),
                 onSort: (i, asc) => _sort((a) => a.quantity, i, asc),
               ),
               DataColumn(
-                label: const Text('Value'),
-                // Sort by numerical value, treating unparseable values as negative infinity
-                onSort: (i, asc) => _sort(
-                  (a) => double.tryParse(a.value) ?? double.negativeInfinity,
-                  i,
-                  asc,
-                ),
+                label: _buildSortableHeader('Value', 4),
+                onSort: (i, asc) => _sort((a) => _parseValue(a.value), i, asc),
               ),
               DataColumn(
-                label: const Text('Uncertainty'), // Removed _getUnsortedIcon
-                // Sort by numerical value, treating unparseable values as negative infinity
+                label: _buildSortableHeader('Uncertainty', 5),
                 onSort: (i, asc) => _sort(
                   (a) =>
                       double.tryParse(a.uncertainty) ?? double.negativeInfinity,
@@ -223,23 +243,20 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
                 ),
               ),
               DataColumn(
-                label: const Text('Unit'), // Removed _getUnsortedIcon
+                label: _buildSortableHeader('Unit', 6),
                 onSort: (i, asc) => _sort((a) => a.unit, i, asc),
               ),
               DataColumn(
-                label: const Text('Type'), // Removed _getUnsortedIcon
+                label: _buildSortableHeader('Type', 7),
                 onSort: (i, asc) => _sort((a) => a.type, i, asc),
               ),
             ],
             rows: _paginatedAnalytes.map((analyte) {
-              // Use _paginatedAnalytes here
               return DataRow(
                 cells: [
                   DataCell(Text(getCrmNameUntilColon(analyte.crmName))),
                   DataCell(Text(analyte.name)),
-                  DataCell(
-                    Text(analyte.materialType ?? 'N/A'),
-                  ), // Display material type
+                  DataCell(Text(analyte.materialType ?? 'N/A')),
                   DataCell(Text(analyte.quantity)),
                   DataCell(Text(analyte.value)),
                   DataCell(Text(analyte.uncertainty)),
@@ -251,7 +268,7 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
           ),
         ),
         const SizedBox(height: 8),
-        _buildPaginationControls(), // Add pagination controls
+        _buildPaginationControls(),
       ],
     );
   }
@@ -269,7 +286,7 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
                     _currentPage--;
                   });
                 }
-              : null, // Disable if on the first page
+              : null,
         ),
         Text('Page ${_currentPage + 1} of $_totalPages'),
         IconButton(
@@ -280,7 +297,7 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
                     _currentPage++;
                   });
                 }
-              : null, // Disable if on the last page
+              : null,
         ),
       ],
     );
