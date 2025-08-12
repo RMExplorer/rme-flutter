@@ -530,15 +530,15 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                             onSelectionChanged: (newSelection) {
                               final previousSelection = globalState.selectedAnalytes;
 
-                              // Find added analytes
-                              final addedAnalytes = newSelection.where(
-                                (a) => !previousSelection.any((b) => b.name == a.name),
-                              ).toList();
+                              // Find added analytes by checking for object identity
+                              final addedAnalytes = newSelection
+                                .where((analyte) => !previousSelection.contains(analyte))
+                                .toList();
                               
-                              // Find removed analytes
-                              final removedAnalytes = previousSelection.where(
-                                (a) => !newSelection.any((b) => b.name == a.name),
-                              ).toList();
+                              // Find removed analytes by checking for object identity
+                              final removedAnalytes = previousSelection
+                                .where((analyte) => !newSelection.contains(analyte))
+                                .toList();
 
                               if (addedAnalytes.isNotEmpty) {
                                 _handleNewlySelectedAnalytes(addedAnalytes, context);
@@ -685,14 +685,14 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                       onSelectionChanged: (selected) {
                         final previousSelection = globalState.selectedAnalytes;
 
-                        // Calculate newly added items to fetch PubChem data only for new selections.
+                        // Calculate newly added items by checking for object identity
                         final newlySelected = selected
-                            .where((item) => !previousSelection.any((a) => a.name == item.name))
+                            .where((analyte) => !previousSelection.contains(analyte))
                             .toList();
 
-                        // Calculate removed items to remove them from global state
+                        // Calculate removed items by checking for object identity
                         final removedAnalytes = previousSelection
-                            .where((item) => !selected.any((a) => a.name == item.name))
+                            .where((analyte) => !selected.contains(analyte))
                             .toList();
 
                         if (newlySelected.isNotEmpty) {

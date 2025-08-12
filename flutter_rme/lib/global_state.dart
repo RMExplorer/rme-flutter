@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart'; // Import for ThemeMode
+import 'package:flutter/material.dart';
 import 'package:flutter_rme/models/pubchem_data.dart';
 import '../models/analyte.dart';
 
@@ -33,7 +33,24 @@ class GlobalState with ChangeNotifier {
 
     for (int i = 0; i < newAnalytes.length; i++) {
       final analyte = newAnalytes[i];
-      if (!_selectedAnalytes.any((a) => a.name == analyte.name)) {
+      // New logic to check if any part of the name is already contained
+      // This logic is flawed. Let's fix it to check for exact name match
+      // instead of a partial name match, as a partial match may not
+      // be the same analyte. The original code's check below is what is being
+      // replaced:
+      //
+      // bool nameAlreadyContained = _selectedAnalytes.any(
+      //   (existingAnalyte) =>
+      //       existingAnalyte.name.contains(analyte.name) ||
+      //       analyte.name.contains(existingAnalyte.name),
+      // );
+
+      // Updated logic: Check for an exact match of the analyte name.
+      bool nameAlreadyContained = _selectedAnalytes.any(
+        (existingAnalyte) => existingAnalyte.name.toLowerCase() == analyte.name.toLowerCase(),
+      );
+
+      if (!nameAlreadyContained) {
         _selectedAnalytes.add(analyte);
         if (i < newData.length) {
           _pubChemData.add(newData[i]);
@@ -50,13 +67,18 @@ class GlobalState with ChangeNotifier {
   }
 
   void removeAnalytes(List<Analyte> analytesToRemove) {
+    bool changed = false;
     for (var analyte in analytesToRemove) {
-      _selectedAnalytes.removeWhere((a) => a.name == analyte.name);
-      _pubChemData.removeWhere(
-        (d) => d.name == analyte.name,
-      ); // Match by name or ID
+      final index = _selectedAnalytes.indexOf(analyte);
+      if (index != -1) {
+        _selectedAnalytes.removeAt(index);
+        _pubChemData.removeAt(index);
+        changed = true;
+      }
     }
-    notifyListeners();
+    if (changed) {
+      notifyListeners();
+    }
   }
 
   void removeAnalyteByName(String name) {

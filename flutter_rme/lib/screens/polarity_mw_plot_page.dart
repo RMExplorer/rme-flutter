@@ -25,6 +25,19 @@ class _PolarityMwPlotPageState extends State<PolarityMwPlotPage> {
   bool _sortAscending = true;
   int? _sortColumnIndex;
 
+  // A list to track the selection state of each analyte.
+  late List<bool> _selectedAnalytes;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize the selection list to all true, based on the initial data.
+    // This assumes that all analytes should be checked by default.
+    final globalState =
+        Provider.of<GlobalState>(context, listen: false);
+    _selectedAnalytes = List<bool>.filled(globalState.pubChemData.length, true);
+  }
+
   /// Helper widget for creating quadrant labels to avoid repeating code.
   ///
   /// [text] is the content of the label.
@@ -45,6 +58,18 @@ class _PolarityMwPlotPageState extends State<PolarityMwPlotPage> {
         ),
       ),
     );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Access the global state to check for changes in the data list.
+    final globalState = Provider.of<GlobalState>(context, listen: false);
+
+    // If the data list has a new size, re-initialize the selection list.
+    if (_selectedAnalytes.length != globalState.pubChemData.length) {
+      _selectedAnalytes = List<bool>.filled(globalState.pubChemData.length, true);
+    }
   }
 
   @override
@@ -90,26 +115,32 @@ class _PolarityMwPlotPageState extends State<PolarityMwPlotPage> {
     if (_sortColumnIndex != null) {
       validData.sort((a, b) {
         // Determine which value to sort by (molecular weight or pKow).
-        final aValue = _sortColumnIndex == 1 ? a.molecularWeight : a.pKow;
-        final bValue = _sortColumnIndex == 1 ? b.molecularWeight : b.pKow;
+        final aValue = _sortColumnIndex == 0 ? a.molecularWeight : a.pKow;
+        final bValue = _sortColumnIndex == 1 ? a.pKow : a.molecularWeight;
+        final cValue = _sortColumnIndex == 0 ? b.molecularWeight : b.pKow;
+        final dValue = _sortColumnIndex == 1 ? b.pKow : b.molecularWeight;
 
         // Handle null values during sorting.
-        if (aValue == null || bValue == null) return 0;
+        if (aValue == null || cValue == null) return 0;
+        if (bValue == null || dValue == null) return 0;
 
         // Apply ascending or descending sort order.
         return _sortAscending
-            ? aValue.compareTo(bValue)
-            : bValue.compareTo(aValue);
+            ? aValue.compareTo(cValue)
+            : cValue.compareTo(aValue);
       });
     }
 
-    // Convert valid PubChemData into FlSpot objects for the scatter chart.
-    // pKow is clamped between -10 and 10, Molecular Weight between 0 and 2500.
+    // Convert valid PubChemData into FlSpot objects for the scatter chart,
+    // only including the ones that are checked in the table.
     final spots = validData
+        .asMap()
+        .entries
+        .where((entry) => _selectedAnalytes[entry.key]) // Filter by the selection state
         .map(
-          (data) => FlSpot(
-            data.pKow!.clamp(-10.0, 10.0),
-            data.molecularWeight!.clamp(0.0, 2500.0),
+          (entry) => FlSpot(
+            entry.value.pKow!.clamp(-10.0, 10.0),
+            entry.value.molecularWeight!.clamp(0.0, 2500.0),
           ),
         )
         .toList();
@@ -373,35 +404,49 @@ class _PolarityMwPlotPageState extends State<PolarityMwPlotPage> {
                 ],
                 // Generate DataRows from the validData list.
                 rows: validData
+                    .asMap()
+                    .entries
                     .map(
-                      (data) => DataRow(
-                        cells: [
-                          // DataCell for compound name, with overflow handling.
-                          DataCell(
-                            SizedBox(
-                              width: 150,
-                              child: Text(
-                                data.name,
-                                overflow: TextOverflow.ellipsis,
+                      (entry) {
+                        final index = entry.key;
+                        final data = entry.value;
+                        return DataRow(
+                          // Use the selection state from the list
+                          selected: _selectedAnalytes[index],
+                          onSelectChanged: (bool? selected) {
+                            // Update the selection state when the row is tapped
+                            setState(() {
+                              _selectedAnalytes[index] = selected!;
+                            });
+                          },
+                          cells: [
+                            // DataCell for compound name, with overflow handling.
+                            DataCell(
+                              SizedBox(
+                                width: 150,
+                                child: Text(
+                                  data.name,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ),
-                          ),
-                          // DataCell for Molecular Weight, formatted to two decimal places.
-                          DataCell(
-                            Text(
-                              data.molecularWeight?.toStringAsFixed(2) ?? 'N/A',
-                              style: const TextStyle(fontFamily: 'RobotoMono'),
+                            // DataCell for Molecular Weight, formatted to two decimal places.
+                            DataCell(
+                              Text(
+                                data.molecularWeight?.toStringAsFixed(2) ?? 'N/A',
+                                style: const TextStyle(fontFamily: 'RobotoMono'),
+                              ),
                             ),
-                          ),
-                          // DataCell for pKow, formatted to two decimal places.
-                          DataCell(
-                            Text(
-                              data.pKow?.toStringAsFixed(2) ?? 'N/A',
-                              style: const TextStyle(fontFamily: 'RobotoMono'),
+                            // DataCell for pKow, formatted to two decimal places.
+                            DataCell(
+                              Text(
+                                data.pKow?.toStringAsFixed(2) ?? 'N/A',
+                                style: const TextStyle(fontFamily: 'RobotoMono'),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        );
+                      },
                     )
                     .toList(),
               ),
