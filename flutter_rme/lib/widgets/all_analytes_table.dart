@@ -53,8 +53,8 @@ class _AllAnalytesTableState extends State<AllAnalytesTable> {
 
   // Pagination related state variables
   int _currentPage = 0;
-  int _itemsPerPage = 20;
-  final List<int> _availableItemsPerPage = [1, 5, 20, 50, 100];
+  int _itemsPerPage = 10;
+  final List<int> _availableItemsPerPage = [1, 5, 10, 20, 50, 100];
 
   @override
   void initState() {

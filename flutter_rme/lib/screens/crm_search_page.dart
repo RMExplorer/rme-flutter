@@ -43,6 +43,12 @@ class CrmSearchPage extends StatefulWidget {
 class _CrmSearchPageState extends State<CrmSearchPage> {
   /// Controller for the CRM search input field.
   final TextEditingController _searchController = TextEditingController();
+  
+  /// Controller for the new searchable CRM dropdown text field.
+  final TextEditingController _crmDropdownController = TextEditingController();
+  
+  /// Focus node to detect when the searchable dropdown is active.
+  late FocusNode _crmDropdownFocusNode;
 
   /// Service for interacting with the CRM data API.
   /// Used to fetch lists of CRMs and their detailed information.
@@ -55,6 +61,10 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
   /// A list of [CrmItem] objects representing the CRMs fetched
   /// either initially or via a search query.
   List<CrmItem> _crmItems = [];
+  
+  /// A list of [CrmItem] objects to be displayed in the searchable dropdown.
+  /// This list is filtered based on the text in _crmDropdownController.
+  List<CrmItem> _filteredCrmItems = [];
 
   /// The ID of the currently selected CRM from the dropdown.
   /// This will be used as the unique value for the DropdownMenuItem.
@@ -82,6 +92,9 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
   /// be displayed prominently (e.g., in red text).
   bool _hasError = false;
 
+  /// A flag to track if the dropdown text field has focus.
+  bool _isDropdownFocused = false;
+
   // The local _selectedAnalytes state variable is no longer needed,
   // as selection is now managed by GlobalState.
   // List<Analyte> _selectedAnalytes = [];
@@ -100,8 +113,21 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
   @override
   void initState() {
     super.initState();
+    // Initialize the FocusNode and add a listener.
+    _crmDropdownFocusNode = FocusNode();
+    _crmDropdownFocusNode.addListener(() {
+      setState(() {
+        _isDropdownFocused = _crmDropdownFocusNode.hasFocus;
+      });
+    });
     // Load the initial list of CRMs when the page is first initialized.
     _loadInitialData();
+  }
+
+  @override
+  void dispose() {
+    _crmDropdownFocusNode.dispose();
+    super.dispose();
   }
 
   /// Fetches the initial list of [CrmItem]s from the [CrmService].
@@ -115,6 +141,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _hasError = false;
       _errorMessage = null;
       _crmItems = []; // Explicitly clear items at the start
+      _filteredCrmItems = []; // Clear filtered items as well
       _selectedCrmId = null; // Clear previous selection
       _selectedDetail = null; // Clear previous detail
       _allAnalytes = []; // Clear all analytes on initial load
@@ -129,6 +156,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       if (mounted) {
         setState(() {
           _crmItems = uniqueItems;
+          _filteredCrmItems = List.from(_crmItems); // Initialize filtered list
           _initialLoadComplete = true;
           _isLoading = false; // Set loading to false here
         });
@@ -161,6 +189,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _selectedCrmId = null; // Clear previous selection
       _selectedDetail = null; // Clear previous detail
       _crmItems = []; // Explicitly clear items at the start
+      _filteredCrmItems = []; // Clear filtered items as well
       _allAnalytes = []; // Clear all analytes when starting a new search
       _hasSearched = true; // Set to true after a search is initiated
       _canonicalNameSuggestion = null; // Clear previous suggestion
@@ -250,6 +279,8 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
           ); // Sort by name for display
           _allAnalytes =
               tempAllAnalytes; // Populate _allAnalytes here, after search
+          _filteredCrmItems = List.from(_crmItems); // Update filtered list
+          _crmDropdownController.clear(); // Clear dropdown text after search
 
           if (_crmItems.isEmpty) {
             if (pubChemResult != null) {
@@ -405,10 +436,35 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _selectedDetail = null; // Clear the detailed view
       _errorMessage = null; // Clear any error messages
       _hasError = false; // Clear error flag
-      // We don't clear _selectedAnalytes here as it's now managed by GlobalState.
-      // Do NOT clear _crmItems or _allAnalytes here.
-      // These lists should retain the results of the last search or initial load.
+      _crmDropdownController.clear(); // Clear the text in the new dropdown field
+      _crmDropdownFocusNode.unfocus(); // Unfocus the text field
+      // Do not clear _allAnalytes here. It should retain the data from the last search.
+      // _allAnalytes = []; // This line is removed.
+      _canonicalNameSuggestion = null; // Clear any 'Did you mean' suggestions
+      _showDidYouMean = false; // Hide 'Did you mean' text
+      // Manually repopulate the filtered list to ensure it's not empty
+      // when the user clicks back into the text field.
+      _filteredCrmItems = List.from(_crmItems);
     });
+  }
+
+  /// for reset button, resets to default search page state
+  void _resetSearchPage() {
+    setState(() {
+      _selectedCrmId = null;
+      _selectedDetail = null;
+      _errorMessage = null;
+      _hasError = false;
+      _crmDropdownController.clear();
+      _crmDropdownFocusNode.unfocus();
+      _searchController.clear();
+      _hasSearched = false;
+      _allAnalytes = [];
+      _canonicalNameSuggestion = null;
+      _showDidYouMean = false;
+    });
+    // Now, call the method to reload the initial CRM data
+    _loadInitialData();
   }
 
   /// Handles the action when the "Did you mean?" suggestion is tapped.
@@ -428,6 +484,74 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       // when _selectedCrmId is null (meaning we're showing all analytes).
     }
   }
+  
+  /// Filters the [_crmItems] list based on the search query.
+  void _filterCrmItems(String query) {
+    if (query.isEmpty) {
+      // If the query is empty, show all items
+      setState(() {
+        _filteredCrmItems = List.from(_crmItems);
+      });
+    } else {
+      // Otherwise, filter items whose name contains the query (case-insensitive)
+      setState(() {
+        _filteredCrmItems = _crmItems
+            .where((item) =>
+                item.name.toLowerCase().contains(query.toLowerCase()))
+            .toList();
+      });
+    }
+  }
+
+  /// Builds the new searchable dropdown widget.
+  Widget _buildSearchableDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _crmDropdownController,
+          focusNode: _crmDropdownFocusNode,
+          decoration: const InputDecoration(
+            labelText: 'Search and Select a CRM',
+            border: OutlineInputBorder(),
+            suffixIcon: Icon(Icons.search),
+          ),
+          onChanged: _filterCrmItems,
+        ),
+        // The list of filtered items is only shown when the text field has focus
+        // and the list is not empty.
+        if (_isDropdownFocused && _filteredCrmItems.isNotEmpty)
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey),
+              borderRadius: BorderRadius.circular(4.0),
+            ),
+            constraints: const BoxConstraints(maxHeight: 200),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: _filteredCrmItems.length,
+              itemBuilder: (context, index) {
+                final item = _filteredCrmItems[index];
+                return ListTile(
+                  title: Text(item.name),
+                  onTap: () {
+                    // When an item is tapped, update the selected CRM,
+                    // load its details, and clear the filter.
+                    setState(() {
+                      _selectedCrmId = item.id;
+                      _crmDropdownController.text = item.name;
+                      _filteredCrmItems = []; // Hide the list after selection
+                    });
+                    _loadCrmDetail(item.id);
+                    _crmDropdownFocusNode.unfocus(); // Unfocus the text field to hide the list
+                  },
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -435,7 +559,16 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
     final globalState = context.watch<GlobalState>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('NRC CRM Digital Repository')),
+      appBar: AppBar(
+        title: const Text('NRC CRM Digital Repository'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Reset Search',
+            onPressed: _resetSearchPage,
+          ),
+        ],
+      ),
       body: _isLoading && !_initialLoadComplete && !_isSearching
           // Display the AnimatedLoader while initial data is loading.
           ? const Center(child: AnimatedLoader())
@@ -449,7 +582,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                   TextField(
                     controller: _searchController,
                     decoration: const InputDecoration(
-                      labelText: 'Search Analytes',
+                      labelText: 'Search Analytes (e.g. name, formula)',
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -464,6 +597,14 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                     child: const Text('Submit'),
                   ),
                   const SizedBox(height: 16),
+                  // The dropdown for selecting a CRM is now placed here,
+                  // just below the submit button. It will only render if
+                  // a CRM has not been selected yet.
+                  if (_selectedCrmId == null && _crmItems.isNotEmpty)
+                    _buildSearchableDropdown(),
+                  
+                  const SizedBox(height: 16),
+
                   // Display error or warning messages if any.
                   if (_errorMessage != null)
                     Padding(
@@ -530,12 +671,12 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                             onSelectionChanged: (newSelection) {
                               final previousSelection = globalState.selectedAnalytes;
 
-                              // Find added analytes by checking for object identity
+                              // Calculate newly added items by checking for object identity
                               final addedAnalytes = newSelection
                                 .where((analyte) => !previousSelection.contains(analyte))
                                 .toList();
                               
-                              // Find removed analytes by checking for object identity
+                              // Calculate removed items by checking for object identity
                               final removedAnalytes = previousSelection
                                 .where((analyte) => !newSelection.contains(analyte))
                                 .toList();
@@ -551,27 +692,6 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                           ),
                           const SizedBox(height: 24),
                         ],
-                        if (_crmItems.isNotEmpty) // Only show dropdown if there are CRMs
-                          DropdownButtonFormField<String>(
-                            value: _selectedCrmId, // Use the ID as the value
-                            hint: const Text('Select a CRM'),
-                            items: _crmItems.map((item) {
-                              // Iterate over CrmItem objects
-                              return DropdownMenuItem<String>(
-                                value: item.id, // Use item.id as the unique value
-                                child: Text(item.name), // Display item.name
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              if (value != null) {
-                                // value is now the crmId
-                                _loadCrmDetail(value);
-                              }
-                            },
-                            decoration: const InputDecoration(
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
                         if (_crmItems.isEmpty && _initialLoadComplete && !_isSearching)
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 20.0),
@@ -584,51 +704,9 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                           ),
                       ],
                     )
-                  else if (!_hasSearched && _crmItems.isNotEmpty) // Show dropdown on initial load if no search yet and CRMs are available
-                    DropdownButtonFormField<String>(
-                      value: _selectedCrmId, // Use the ID as the value
-                      hint: const Text('Select a CRM'),
-                      items: _crmItems.map((item) {
-                        // Iterate over CrmItem objects
-                        return DropdownMenuItem<String>(
-                          value: item.id, // Use item.id as the unique value
-                          child: Text(item.name), // Display item.name
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          // value is now the crmId
-                          _loadCrmDetail(value);
-                        }
-                      },
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                      ),
-                    )
-                  else if (_selectedCrmId != null) // Display dropdown if items are available and a CRM is selected
-                    DropdownButtonFormField<String>(
-                      value: _selectedCrmId, // Use the ID as the value
-                      hint: const Text('Select a CRM'),
-                      items: _crmItems.map((item) {
-                        // Iterate over CrmItem objects
-                        return DropdownMenuItem<String>(
-                          value: item.id, // Use item.id as the unique value
-                          child: Text(item.name), // Display item.name
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          // value is now the crmId
-                          _loadCrmDetail(value);
-                        }
-                      },
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  const SizedBox(height: 24),
                   // Display selected CRM details if available.
-                  if (_selectedDetail != null) ...[
+                  // Added a null check for _selectedDetail to prevent the crash
+                  else if (_selectedCrmId != null && _selectedDetail != null) ...[
                     // "Back to All Analytes" button
                     ElevatedButton(
                       onPressed: _resetToAllAnalytes,
