@@ -64,12 +64,12 @@ class CrmService {
             'https://nrc-digital-repository.canada.ca/eng/search/atom/?q=$encodedQuery&fc=%2Bcn%3Acrm',
           ),
         )
-        .timeout(const Duration(seconds: 30));
-
+        .timeout(const Duration(seconds: 30)); //print('DEBUG (prints out query): $encodedQuery');
     if (response.statusCode == 200) {
       final document = xml.XmlDocument.parse(response.body);
-      // Skip the first entry as it often contains general feed information
-      final items = document.findAllElements('entry').skip(1);
+      final items = document.findAllElements('entry');
+
+      //print('DEBUG (prints out items): $items');
 
       return items
           .map((item) {

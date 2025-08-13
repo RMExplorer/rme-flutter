@@ -87,7 +87,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           
                           /// A detailed description of the Reference Material Explorer application.
                           Text(
-                            'This is an application built upon the NRC Digital Repository external Application Programming Interfaces (APIs) that allows users to visualise, analyse and display useful information about the Reference Materials produced by the National Research Council of Canada. This application relies upon and complies with FAIR data principles and showcases multiple uses of machine-readable information in digital CRM certificates.',
+                            'This is an application built upon the NRC Digital Repository external Application Programming Interfaces (APIs) that allows users to visualise, analyse and display useful information about the Reference Materials produced by the National Research Council of Canada. This application relies upon and complies with FAIR data principles and showcases the use of machine-readable information from digital certificates.',
                             textAlign: TextAlign.justify, // Justifies the paragraph text
                             style: TextStyle(
                               fontSize: 16,
