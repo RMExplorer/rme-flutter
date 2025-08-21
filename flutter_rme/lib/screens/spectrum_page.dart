@@ -172,65 +172,66 @@ class _SpectrumPageState extends State<SpectrumPage> {
       appBar: AppBar(
         title: Text(widget.selectedAnalyte),
       ),
-      body: Padding( // Add Padding here to match the removed Scaffold in SpectrumPlot
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                isExpanded: true, // Allow dropdown to take available width.
-                value: _selectedSpectrumUrl, // The currently selected spectrum's URL.
-                icon: const Icon(Icons.arrow_drop_down), // Explicitly set a standard dropdown icon.
-                onChanged: (String? newValue) {
-                  if (newValue != null) {
-                    setState(() {
-                      _selectedSpectrumUrl = newValue; // Update the selected spectrum URL.
-                      // Find the title of the newly selected spectrum to update plot type.
-                      final selectedTitle = _availableSpectra
-                          .firstWhere((element) => element['href'] == newValue)['title'];
-                      _updatePlotType(selectedTitle ?? ''); // Update plot type based on title.
-                    });
-                    _downloadCsvData(newValue); // Download CSV data for the new selection.
-                  }
-                },
-                // Generate dropdown menu items from the list of available spectra.
-                items: _availableSpectra.map<DropdownMenuItem<String>>(
-                  (Map<String, String> spectrum) {
-                    return DropdownMenuItem<String>(
-                      value: spectrum['href'], // The value of the dropdown item is the URL.
-                      child: Text(
-                        spectrum['title']!, // The displayed text is the spectrum title.
-                        overflow: TextOverflow.ellipsis, // Handle long text by truncating.
-                        maxLines: 1, // Restrict to a single line.
-                        style: const TextStyle(color: Colors.black),
-                      ),
-                    );
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  isExpanded: true, // Allow dropdown to take available width.
+                  value: _selectedSpectrumUrl, // The currently selected spectrum's URL.
+                  icon: const Icon(Icons.arrow_drop_down), // Explicitly set a standard dropdown icon.
+                  onChanged: (String? newValue) {
+                    if (newValue != null) {
+                      setState(() {
+                        _selectedSpectrumUrl = newValue; // Update the selected spectrum URL.
+                        // Find the title of the newly selected spectrum to update plot type.
+                        final selectedTitle = _availableSpectra
+                            .firstWhere((element) => element['href'] == newValue)['title'];
+                        _updatePlotType(selectedTitle ?? ''); // Update plot type based on title.
+                      });
+                      _downloadCsvData(newValue); // Download CSV data for the new selection.
+                    }
                   },
-                ).toList(),
+                  // Generate dropdown menu items from the list of available spectra.
+                  items: _availableSpectra.map<DropdownMenuItem<String>>(
+                    (Map<String, String> spectrum) {
+                      return DropdownMenuItem<String>(
+                        value: spectrum['href'], // The value of the dropdown item is the URL.
+                        child: Text(
+                          spectrum['title']!, // The displayed text is the spectrum title.
+                          overflow: TextOverflow.ellipsis, // Handle long text by truncating.
+                          maxLines: 1, // Restrict to a single line.
+                        ),
+                      );
+                    },
+                  ).toList(),
+                ),
               ),
-            ),
-            Expanded(
-              // Display SpectrumPlot if CSV data is available, otherwise show a message.
-              child: _csvData == null
-                  ? const Center(child: Text('No spectral data available for selection'))
-                  : SpectrumPlot(
-                      csvData: _csvData!, // Pass the CSV data to the SpectrumPlot widget.
-                      isMassSpectrum: _isMassSpectrum, // Pass the plot type.
-                      reverseXAxis: _reverseXAxis, // Pass the x-axis reversal state
-                      reverseYAxis: _reverseYAxis, // Pass the y-axis reversal state
-                      onToggleReverseXAxis: (newValue) {
-                        setState(() {
-                          _reverseXAxis = newValue;
-                        });
-                      },
-                      onToggleReverseYAxis: (newValue) {
-                        setState(() {
-                          _reverseYAxis = newValue;
-                        });
-                      },
-                    ),
-            ),
-          ],
+              Expanded(
+                // Display SpectrumPlot if CSV data is available, otherwise show a message.
+                child: _csvData == null
+                    ? const Center(child: Text('No spectral data available for selection'))
+                    : SpectrumPlot(
+                        csvData: _csvData!, // Pass the CSV data to the SpectrumPlot widget.
+                        isMassSpectrum: _isMassSpectrum, // Pass the plot type.
+                        reverseXAxis: _reverseXAxis, // Pass the x-axis reversal state
+                        reverseYAxis: _reverseYAxis, // Pass the y-axis reversal state
+                        onToggleReverseXAxis: (newValue) {
+                          setState(() {
+                            _reverseXAxis = newValue;
+                          });
+                        },
+                        onToggleReverseYAxis: (newValue) {
+                          setState(() {
+                            _reverseYAxis = newValue;
+                          });
+                        },
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );
