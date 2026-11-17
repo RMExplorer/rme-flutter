@@ -33,8 +33,8 @@ class GlassCard extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 // Increased opacity for better visibility in light mode.
-                color: textColor.withOpacity(0.1),
-                border: Border.all(color: textColor.withOpacity(0.2), width: 1),
+                color: textColor.withValues(alpha: 0.1),
+                border: Border.all(color: textColor.withValues(alpha: 0.2), width: 1),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(

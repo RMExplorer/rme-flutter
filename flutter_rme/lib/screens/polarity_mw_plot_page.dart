@@ -227,7 +227,7 @@ class _PolarityMwPlotPageState extends State<PolarityMwPlotPage> {
                           );
                         }
                         return FlLine(
-                          color: Colors.grey.withOpacity(0.5),
+                          color: Colors.grey.withValues(alpha: 0.5),
                           strokeWidth: 1,
                         );
                       },
@@ -240,7 +240,7 @@ class _PolarityMwPlotPageState extends State<PolarityMwPlotPage> {
                           );
                         }
                         return FlLine(
-                          color: Colors.grey.withOpacity(0.5),
+                          color: Colors.grey.withValues(alpha: 0.5),
                           strokeWidth: 1,
                         );
                       },
@@ -310,7 +310,7 @@ class _PolarityMwPlotPageState extends State<PolarityMwPlotPage> {
                   left: 65,
                   child: _buildQuadrantLabel(
                     'Low Polarity\nHigh MW',
-                    backgroundColor: Colors.black.withOpacity(0.5),
+                    backgroundColor: Colors.black.withValues(alpha: 0.5),
                   ),
                 ),
                 Positioned(
@@ -318,7 +318,7 @@ class _PolarityMwPlotPageState extends State<PolarityMwPlotPage> {
                   right: 20,
                   child: _buildQuadrantLabel(
                     'High Polarity\nHigh MW',
-                    backgroundColor: Colors.black.withOpacity(0.5),
+                    backgroundColor: Colors.black.withValues(alpha: 0.5),
                   ),
                 ),
                 Positioned(
@@ -326,7 +326,7 @@ class _PolarityMwPlotPageState extends State<PolarityMwPlotPage> {
                   left: 65,
                   child: _buildQuadrantLabel(
                     'Low Polarity\nLow MW',
-                    backgroundColor: Colors.black.withOpacity(0.5),
+                    backgroundColor: Colors.black.withValues(alpha: 0.5),
                   ),
                 ),
                 Positioned(
@@ -334,7 +334,7 @@ class _PolarityMwPlotPageState extends State<PolarityMwPlotPage> {
                   right: 20,
                   child: _buildQuadrantLabel(
                     'High Polarity\nLow MW',
-                    backgroundColor: Colors.black.withOpacity(0.5),
+                    backgroundColor: Colors.black.withValues(alpha: 0.5),
                   ),
                 ),
               ],

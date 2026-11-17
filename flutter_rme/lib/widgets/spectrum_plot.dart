@@ -321,18 +321,18 @@ class _SpectrumPlotState extends State<SpectrumPlot> {
                                     horizontalInterval: _calculateInterval(chartMaxY - chartMinY),
                                     verticalInterval: _calculateInterval(chartMaxX - chartMinX),
                                     getDrawingHorizontalLine: (value) => FlLine(
-                                      color: Colors.grey.withOpacity(0.3),
+                                      color: Colors.grey.withValues(alpha: 0.3),
                                       strokeWidth: 1,
                                     ),
                                     getDrawingVerticalLine: (value) => FlLine(
-                                      color: Colors.grey.withOpacity(0.3),
+                                      color: Colors.grey.withValues(alpha: 0.3),
                                       strokeWidth: 1,
                                     ),
                                   ),
                                   borderData: FlBorderData(
                                     show: true,
                                     border: Border.all(
-                                      color: Colors.grey.withOpacity(0.3),
+                                      color: Colors.grey.withValues(alpha: 0.3),
                                       width: 1,
                                     ),
                                   ),
