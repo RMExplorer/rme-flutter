@@ -3,7 +3,7 @@ import 'package:flutter_rme/global_state.dart'; // Import GlobalState
 import 'package:provider/provider.dart'; // Import provider
 import '../ui_elements/animated_gradient_widget.dart'; // Ensure this path is correct
 
-/// A StatelessWidget that represents the home page of the Reference Material Explorer application.
+/// A StatefulWidget that represents the home page of the Reference Material Explorer application.
 ///
 /// This page provides an introduction to the application, its purpose,
 /// and highlights its adherence to FAIR data principles. It displays
