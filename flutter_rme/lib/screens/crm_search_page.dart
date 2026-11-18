@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:provider/provider.dart';
+// import 'package:provider/provider.dart';
 
-import '../models/analyte.dart';
+// import '../models/analyte.dart';
 import '../models/crm_item.dart';
 import '../models/crm_detail.dart';
 import '../screens/properties_page.dart';
-import '../screens/spectrum_page.dart';
+// import '../screens/spectrum_page.dart';
 import '../services/crm_service.dart';
 import '../services/pubchem_service.dart';
 import '../widgets/analyte_table.dart';
-import '../global_state.dart';
+// import '../global_state.dart';
 import '../models/pubchem_data.dart'; // Import PubChemData
 import '../widgets/all_analytes_table.dart';
 import '../ui_elements/animated_loader.dart';
@@ -19,11 +19,10 @@ import '../ui_elements/animated_loader.dart';
 /// A StatefulWidget that provides a user interface for searching and
 /// interacting with Certified Reference Materials (CRMs).
 ///
-/// This page allows users to search for CRMs by name, view their detailed
-/// information, select individual analytes within a CRM, and navigate to
-/// detailed properties or spectrum pages for the selected analytes. It
-/// integrates with [CrmService] to fetch CRM data and [PubChemService]
-/// to enrich analyte data.
+/// This page allows users to search for analytes, expand them to see the CRMs 
+/// that contain them, open a CRM's details, and navigate to an analyte's
+/// properties page. It integrates with [CrmService] to fetch CRM data and 
+/// [PubChemService] to enrich analyte data.
 class CrmSearchPage extends StatefulWidget {
   /// Constructs a [CrmSearchPage].
   const CrmSearchPage({super.key});
@@ -34,12 +33,12 @@ class CrmSearchPage extends StatefulWidget {
 
 /// The private State class for [CrmSearchPage].
 ///
-/// Manages the state and logic for CRM searching, selection,
-/// detail loading, and analyte management. It handles user input
-/// for searching CRMs, displays CRM details, and allows users to
-/// select analytes from a CRM. It interacts with [CrmService] to
-/// fetch CRM data, [PubChemService] to retrieve PubChem data
-/// for analytes, and updates the [GlobalState] with selected analytes.
+/// Manages the state and logic for CRM searching, analyte searching,
+/// and detail loading. It handles user input for searching CRMs and 
+/// analytes, displays CRM details, and allows users to view analyte
+/// properties. It interacts with [CrmService] to fetch CRM data, 
+/// [PubChemService] to retrieve PubChem data for analytes, and 
+/// updates the [GlobalState] with selected analytes.
 class _CrmSearchPageState extends State<CrmSearchPage> {
   /// Controller for the CRM search input field.
   final TextEditingController _searchController = TextEditingController();
@@ -99,15 +98,32 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
   // as selection is now managed by GlobalState.
   // List<Analyte> _selectedAnalytes = [];
 
-  /// A list to hold all analytes from all fetched CRMs.
-  List<Analyte> _allAnalytes = [];
+  // _allAnalytes is no longer needed as AllAnalytesTable now only
+  // displays analyte names and CRMs.
+  // List<Analyte> _allAnalytes = [];
+
+  /// Analyte name -> CRMs (from the last search) that contain that analyte.
+  Map<String, List<CrmItem>> _analyteCrms = {};
+
+  /// Terms an analyte name must CONTAIN to be listed (query + canonical name).
+  Set<String> _matchTerms = {};
+
+  /// Terms an analyte name must EQUAL to be listed (PubChem synonyms).
+  /// Exact-only so short synonyms like 'DA' don't match unrelated names.
+  Set<String> _exactTerms = {};
+
+  /// The analyte row currently highlighted (drives the FAB).
+  String? _selectedAnalyteName;
+
+  /// Analyte rows currently expanded.
+  final Set<String> _expandedAnalytes = {};
 
   /// A flag to indicate if a search has been performed.
   bool _hasSearched = false;
 
   // New state variables for "Did you mean?" functionality
   String? _canonicalNameSuggestion;
-  String _lastSearchQuery = ''; // Store the last query to compare
+  // String _lastSearchQuery = ''; // Store the last query to compare
   bool _showDidYouMean = false;
 
   @override
@@ -144,7 +160,10 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _filteredCrmItems = []; // Clear filtered items as well
       _selectedCrmId = null; // Clear previous selection
       _selectedDetail = null; // Clear previous detail
-      _allAnalytes = []; // Clear all analytes on initial load
+      // _allAnalytes = []; // Clear all analytes on initial load
+      _analyteCrms = {};
+      _selectedAnalyteName = null;
+      _expandedAnalytes.clear();
       _hasSearched = false; // Reset search flag
     });
 
@@ -190,11 +209,14 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _selectedDetail = null; // Clear previous detail
       _crmItems = []; // Explicitly clear items at the start
       _filteredCrmItems = []; // Clear filtered items as well
-      _allAnalytes = []; // Clear all analytes when starting a new search
+      // _allAnalytes = []; // Clear all analytes when starting a new search
+      _analyteCrms = {};
+      _selectedAnalyteName = null;
+      _expandedAnalytes.clear();
       _hasSearched = true; // Set to true after a search is initiated
       _canonicalNameSuggestion = null; // Clear previous suggestion
       _showDidYouMean = false; // Reset "Did you mean?" flag
-      _lastSearchQuery = query; // Store the current query
+      // _lastSearchQuery = query; // Store the current query
     });
 
     try {
@@ -221,6 +243,12 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
         _showDidYouMean = true;
       }
 
+      // Terms used to decide which analyte names are listed in the table.
+      final matchTerms = <String>{query, if (actualCanonicalName != null) actualCanonicalName};
+      final exactTerms = <String>{
+        ...?pubChemResult?.synonyms,
+      };
+
       Set<CrmItem> combinedResults = {};
       bool foundAnyNrcResults = false;
 
@@ -239,25 +267,43 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
         }
       }
 
-      // Fetch details for all items to populate _allAnalytes from search results
-      List<Analyte> tempAllAnalytes = [];
+      // // Fetch details for all items to populate _allAnalytes from search results
+      // List<Analyte> tempAllAnalytes = [];
+      // for (var item in combinedResults) {
+      //   try {
+      //     final detail = await _crmService.loadCrmDetail(item);
+      //     for (var analyte in detail.analyteData ?? []) {
+      //       // Null-aware operator to prevent errors
+      //       tempAllAnalytes.add(
+      //         Analyte(
+      //           name: analyte.name,
+      //           quantity: analyte.quantity,
+      //           value: analyte.value,
+      //           uncertainty: analyte.uncertainty,
+      //           unit: analyte.unit,
+      //           type: analyte.type,
+      //           crmName: detail.title, // Add CRM name to analyte
+      //           materialType: detail.materialType, // Pass materialType to Analyte
+      //         ),
+      //       );
+      //     }
+      //   } catch (detailError) {
+      //     debugPrint(
+      //       'Failed to load detail for CRM ${item.name}: $detailError',
+      //     );
+      //   }
+      // }
+
+      final Map<String, Map<String, CrmItem>> crmsByName = {};
+      // Fetch details for all items to build the analyte -> CRMs map
       for (var item in combinedResults) {
         try {
           final detail = await _crmService.loadCrmDetail(item);
           for (var analyte in detail.analyteData ?? []) {
-            // Null-aware operator to prevent errors
-            tempAllAnalytes.add(
-              Analyte(
-                name: analyte.name,
-                quantity: analyte.quantity,
-                value: analyte.value,
-                uncertainty: analyte.uncertainty,
-                unit: analyte.unit,
-                type: analyte.type,
-                crmName: detail.title, // Add CRM name to analyte
-                materialType: detail.materialType, // Pass materialType to Analyte
-              ),
-            );
+            final name = analyte.name.trim();
+            if (name.isEmpty) continue;
+            // Keyed by CRM id so each CRM appears once per analyte.
+            crmsByName.putIfAbsent(name, () => {})[item.id] = item;
           }
         } catch (detailError) {
           debugPrint(
@@ -277,8 +323,14 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
           _crmItems.sort(
             (a, b) => a.name.compareTo(b.name),
           ); // Sort by name for display
-          _allAnalytes =
-              tempAllAnalytes; // Populate _allAnalytes here, after search
+          // _allAnalytes = tempAllAnalytes;
+          _analyteCrms = {
+            for (final e in crmsByName.entries)
+              e.key: (e.value.values.toList()
+                ..sort((a, b) => a.name.compareTo(b.name))),
+          };
+          _matchTerms = matchTerms;
+          _exactTerms = exactTerms;
           _filteredCrmItems = List.from(_crmItems); // Update filtered list
           _crmDropdownController.clear(); // Clear dropdown text after search
 
@@ -326,6 +378,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _hasError = false;
       _errorMessage = null;
       _selectedDetail = null; // Clear previous detail
+      _selectedCrmId = crmId; // Show the loader right away
     });
 
     try {
@@ -348,6 +401,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       if (mounted) {
         setState(() {
           _handleError('Error fetching CRM details: ${e.toString()}');
+          _selectedCrmId = null; // Return to the list instead of a blank page
           _isLoading = false;
         });
       }
@@ -372,61 +426,89 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
     }
   }
 
-  /// Navigates to the [PropertiesPage] for the first selected analyte.
-  ///
-  /// This method is called when the "View Selected Properties" button is pressed.
-  /// It pushes a new route to display the properties of the first analyte
-  /// in the [_selectedAnalytes] list.
-  void _navigateToPropertiesPage() {
-    final selectedAnalytes = context.read<GlobalState>().selectedAnalytes;
-    if (selectedAnalytes.isNotEmpty) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) =>
-              PropertiesPage(selectedAnalyte: selectedAnalytes[0].name),
-        ),
-      );
-    }
+  /// Opens the properties page for the highlighted analyte.
+  Future<void> _navigateToPropertiesPage() async {
+    final name = _selectedAnalyteName;
+    if (name == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PropertiesPage(selectedAnalyte: name),
+      ),
+    );
   }
 
-  /// Navigates to the [SpectrumPage] for the first selected analyte.
-  ///
-  /// This method is called when the "View Selected Spectrum" button is pressed.
-  /// It pushes a new route to display the spectrum of the first analyte
-  /// in the [_selectedAnalytes] list.
-  void _navigateToSpectrumPage() {
-    final selectedAnalytes = context.read<GlobalState>().selectedAnalytes;
-    if (selectedAnalytes.isNotEmpty) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) =>
-              SpectrumPage(selectedAnalyte: selectedAnalytes[0].name),
-        ),
-      );
-    }
+  // /// Navigates to the [PropertiesPage] for the first selected analyte.
+  // ///
+  // /// This method is called when the "View Selected Properties" button is pressed.
+  // /// It pushes a new route to display the properties of the first analyte
+  // /// in the [_selectedAnalytes] list.
+  // void _navigateToPropertiesPage() {
+  //   final selectedAnalytes = context.read<GlobalState>().selectedAnalytes;
+  //   if (selectedAnalytes.isNotEmpty) {
+  //     Navigator.push(
+  //       context,
+  //       MaterialPageRoute(
+  //         builder: (context) =>
+  //             PropertiesPage(selectedAnalyte: selectedAnalytes[0].name),
+  //       ),
+  //     );
+  //   }
+  // }
+
+  // /// Navigates to the [SpectrumPage] for the first selected analyte.
+  // ///
+  // /// This method is called when the "View Selected Spectrum" button is pressed.
+  // /// It pushes a new route to display the spectrum of the first analyte
+  // /// in the [_selectedAnalytes] list.
+  // void _navigateToSpectrumPage() {
+  //   final selectedAnalytes = context.read<GlobalState>().selectedAnalytes;
+  //   if (selectedAnalytes.isNotEmpty) {
+  //     Navigator.push(
+  //       context,
+  //       MaterialPageRoute(
+  //         builder: (context) =>
+  //             SpectrumPage(selectedAnalyte: selectedAnalytes[0].name),
+  //       ),
+  //     );
+  //   }
+  // }
+
+  /// Analyte names to list: unique, and only those matching the search.
+  List<String> get _visibleAnalyteNames {
+    final contains = _matchTerms
+      .map((t) => t.trim().toLowerCase())
+      .where((t) => t.isNotEmpty)
+      .toList();
+    final exact = _exactTerms.map((t) => t.trim().toLowerCase()).toSet();
+
+    final names = _analyteCrms.keys.where((name) {
+      final lower = name.toLowerCase();
+      return exact.contains(lower) || contains.any(lower.contains);
+    }).toList()
+    ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return names;
   }
 
-  /// Processes newly selected analytes by fetching their PubChem data
-  /// and adding them to the [GlobalState].
-  ///
-  /// This method is triggered by the [AnalyteTable]'s `onSelectionChanged`
-  /// callback when new analytes are selected. It uses [PubChemService]
-  /// to get chemical data for these analytes and then adds them, along
-  /// with their PubChem data, to the application's global state.
-  ///
-  /// [newlySelected]: A list of [Analyte] objects that have just been selected.
-  /// [context]: The current build context, used to access the [GlobalState] via `Provider.of`.
-  Future<void> _handleNewlySelectedAnalytes(
-    List<Analyte> newlySelected,
-    BuildContext context,
-  ) async {
-    // Fetch PubChemData for each newly selected analyte
-    final data = await PubChemService().getPubChemData(newlySelected);
-    // Add the analytes and their PubChem data to the global state
-    context.read<GlobalState>().addAnalytes(newlySelected, data);
-  }
+  // /// Processes newly selected analytes by fetching their PubChem data
+  // /// and adding them to the [GlobalState].
+  // ///
+  // /// This method is triggered by the [AnalyteTable]'s `onSelectionChanged`
+  // /// callback when new analytes are selected. It uses [PubChemService]
+  // /// to get chemical data for these analytes and then adds them, along
+  // /// with their PubChem data, to the application's global state.
+  // ///
+  // /// [newlySelected]: A list of [Analyte] objects that have just been selected.
+  // /// [context]: The current build context, used to access the [GlobalState] via `Provider.of`.
+  // Future<void> _handleNewlySelectedAnalytes(
+  //   List<Analyte> newlySelected,
+  //   BuildContext context,
+  // ) async {
+  //   // Fetch PubChemData for each newly selected analyte
+  //   final data = await PubChemService().getPubChemData(newlySelected);
+  //   // Add the analytes and their PubChem data to the global state
+  //   context.read<GlobalState>().addAnalytes(newlySelected, data);
+  // }
 
   /// Resets the CRM search page to its initial state,
   /// clearing selected CRM details and showing the all analytes table.
@@ -459,7 +541,12 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _crmDropdownFocusNode.unfocus();
       _searchController.clear();
       _hasSearched = false;
-      _allAnalytes = [];
+      // _allAnalytes = [];
+      _analyteCrms = {};
+      _matchTerms = {};
+      _exactTerms = {};
+      _selectedAnalyteName = null;
+      _expandedAnalytes.clear();
       _canonicalNameSuggestion = null;
       _showDidYouMean = false;
     });
@@ -472,13 +559,12 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
   /// a re-filtering of the analytes table.
   void _onDidYouMeanTapped() {
     if (_canonicalNameSuggestion != null) {
-      // Create a temporary controller and set its text to the canonical name.
-      // We'll pass this text directly to AllAnalytesTable.
-      // The AllAnalytesTable will handle its own _searchController initialization.
       setState(() {
         _showDidYouMean = false; // Hide the suggestion after it's used
-        _lastSearchQuery =
-            _canonicalNameSuggestion!; // Update last search query to apply the new filter
+        _matchTerms = {_canonicalNameSuggestion!}; // Re-filter the table
+        _selectedAnalyteName = null; // The selected row may no longer be listed
+        // _lastSearchQuery =
+        //     _canonicalNameSuggestion!; // Update last search query to apply the new filter
       });
       // The AllAnalytesTable will be rebuilt with this new initialSearchText
       // when _selectedCrmId is null (meaning we're showing all analytes).
@@ -555,9 +641,6 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Use a watch to trigger a rebuild when GlobalState.selectedAnalytes changes
-    final globalState = context.watch<GlobalState>();
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('NRC CRM Digital Repository'),
@@ -569,11 +652,22 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
           ),
         ],
       ),
+      floatingActionButton: (_hasSearched &&
+              !_isSearching &&
+              _selectedCrmId == null &&
+              _selectedAnalyteName != null)
+          ? FloatingActionButton.extended(
+              onPressed: _navigateToPropertiesPage,
+              icon: const Icon(Icons.science_outlined),
+              label: const Text('View Properties'),
+            )
+          : null,
       body: _isLoading && !_initialLoadComplete && !_isSearching
           // Display the AnimatedLoader while initial data is loading.
           ? const Center(child: AnimatedLoader())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+            // Extra bottom padding so the FAB never covers the last row.
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -657,38 +751,53 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (_allAnalytes.isNotEmpty) ...[
+                        // if (_allAnalytes.isNotEmpty) ...[
+                        if (_visibleAnalyteNames.isNotEmpty) ...[
                           // Only show table if there are analytes
                           const SizedBox(height: 16),
                           // Use the new AllAnalytesTable widget
                           AllAnalytesTable(
-                            analytes: _allAnalytes,
-                            initialSearchText: _showDidYouMean &&
-                                    _canonicalNameSuggestion != null
-                                ? _canonicalNameSuggestion!
-                                : _lastSearchQuery,
-                            selectedAnalytes: globalState.selectedAnalytes,
-                            onSelectionChanged: (newSelection) {
-                              final previousSelection = globalState.selectedAnalytes;
+                            // analytes: _allAnalytes,
+                            // initialSearchText: _showDidYouMean &&
+                            //         _canonicalNameSuggestion != null
+                            //     ? _canonicalNameSuggestion!
+                            //     : _lastSearchQuery,
+                            // selectedAnalytes: globalState.selectedAnalytes,
+                            // onSelectionChanged: (newSelection) {
+                            //   final previousSelection = globalState.selectedAnalytes;
 
-                              // Calculate newly added items by checking for object identity
-                              final addedAnalytes = newSelection
-                                .where((analyte) => !previousSelection.contains(analyte))
-                                .toList();
+                            //   // Calculate newly added items by checking for object identity
+                            //   final addedAnalytes = newSelection
+                            //     .where((analyte) => !previousSelection.contains(analyte))
+                            //     .toList();
                               
-                              // Calculate removed items by checking for object identity
-                              final removedAnalytes = previousSelection
-                                .where((analyte) => !newSelection.contains(analyte))
-                                .toList();
+                            //   // Calculate removed items by checking for object identity
+                            //   final removedAnalytes = previousSelection
+                            //     .where((analyte) => !newSelection.contains(analyte))
+                            //     .toList();
 
-                              if (addedAnalytes.isNotEmpty) {
-                                _handleNewlySelectedAnalytes(addedAnalytes, context);
-                              }
+                            //   if (addedAnalytes.isNotEmpty) {
+                            //     _handleNewlySelectedAnalytes(addedAnalytes, context);
+                            //   }
 
-                              if (removedAnalytes.isNotEmpty) {
-                                globalState.removeAnalytes(removedAnalytes);
+                            //   if (removedAnalytes.isNotEmpty) {
+                            //     globalState.removeAnalytes(removedAnalytes);
+                            //   }
+                            // },
+                            analyteNames: _visibleAnalyteNames,
+                            crmsByAnalyte: _analyteCrms,
+                            selectedAnalyte: _selectedAnalyteName,
+                            expandedAnalytes: _expandedAnalytes,
+                            onAnalyteTapped: (name) => setState(() {
+                              _selectedAnalyteName = 
+                                _selectedAnalyteName == name ? null : name;
+                            }),
+                            onToggleExpanded: (name) => setState(() {
+                              if (!_expandedAnalytes.add(name)) {
+                                _expandedAnalytes.remove(name);
                               }
-                            },
+                            }),
+                            onCrmTapped: (crm) => _loadCrmDetail(crm.id),
                           ),
                           const SizedBox(height: 24),
                         ],
@@ -703,6 +812,13 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                             ),
                           ),
                       ],
+                    )
+                  else if (_selectedCrmId != null && _selectedDetail == null)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20.0),
+                        child: AnimatedLoader(),
+                      ),
                     )
                   // Display selected CRM details if available.
                   // Added a null check for _selectedDetail to prevent the crash
@@ -760,46 +876,48 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
                     // and allow users to select them.
                     AnalyteTable(
                       analytes: _selectedDetail!.analyteData,
-                      onSelectionChanged: (selected) {
-                        final previousSelection = globalState.selectedAnalytes;
+                      // Selection no longer drives anything on this page.
+                      // onSelectionChanged: (selected) {
+                      //   final previousSelection = globalState.selectedAnalytes;
 
-                        // Calculate newly added items by checking for object identity
-                        final newlySelected = selected
-                            .where((analyte) => !previousSelection.contains(analyte))
-                            .toList();
+                      //   // Calculate newly added items by checking for object identity
+                      //   final newlySelected = selected
+                      //       .where((analyte) => !previousSelection.contains(analyte))
+                      //       .toList();
 
-                        // Calculate removed items by checking for object identity
-                        final removedAnalytes = previousSelection
-                            .where((analyte) => !selected.contains(analyte))
-                            .toList();
+                      //   // Calculate removed items by checking for object identity
+                      //   final removedAnalytes = previousSelection
+                      //       .where((analyte) => !selected.contains(analyte))
+                      //       .toList();
 
-                        if (newlySelected.isNotEmpty) {
-                          _handleNewlySelectedAnalytes(newlySelected, context);
-                        }
+                      //   if (newlySelected.isNotEmpty) {
+                      //     _handleNewlySelectedAnalytes(newlySelected, context);
+                      //   }
 
-                        if (removedAnalytes.isNotEmpty) {
-                          globalState.removeAnalytes(removedAnalytes);
-                        }
-                      },
+                      //   if (removedAnalytes.isNotEmpty) {
+                      //     globalState.removeAnalytes(removedAnalytes);
+                      //   }
+                      // },
                     ),
 
-                    const SizedBox(height: 16),
-                    // Button to navigate to the properties page for selected analytes.
-                    ElevatedButton(
-                      onPressed: globalState.selectedAnalytes.isNotEmpty
-                          ? _navigateToPropertiesPage
-                          : null, // Button is disabled if no analytes are selected.
-                      child: const Text('View Selected Properties'),
-                    ),
+                    // Properties and Spectrum buttons are no longer needed on this page
+                    // const SizedBox(height: 16),
+                    // // Button to navigate to the properties page for selected analytes.
+                    // ElevatedButton(
+                    //   onPressed: globalState.selectedAnalytes.isNotEmpty
+                    //       ? _navigateToPropertiesPage
+                    //       : null, // Button is disabled if no analytes are selected.
+                    //   child: const Text('View Selected Properties'),
+                    // ),
 
-                    const SizedBox(height: 8),
-                    // Button to navigate to the spectrum page for selected analytes.
-                    ElevatedButton(
-                      onPressed: globalState.selectedAnalytes.isNotEmpty
-                          ? _navigateToSpectrumPage
-                          : null, // Button is disabled if no analytes are selected.
-                      child: const Text('View Selected Spectrum'),
-                    ),
+                    // const SizedBox(height: 8),
+                    // // Button to navigate to the spectrum page for selected analytes.
+                    // ElevatedButton(
+                    //   onPressed: globalState.selectedAnalytes.isNotEmpty
+                    //       ? _navigateToSpectrumPage
+                    //       : null, // Button is disabled if no analytes are selected.
+                    //   child: const Text('View Selected Spectrum'),
+                    // ),
                   ],
                 ],
               ),
