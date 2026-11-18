@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_rme/screens/home_page.dart';
 import 'package:flutter_rme/screens/instructions_page.dart';
-import 'package:flutter_rme/screens/polarity_mw_plot_page.dart';
+// import 'package:flutter_rme/screens/polarity_mw_plot_page.dart';
 import 'screens/crm_search_page.dart';
 import 'dart:io'; // Import for HttpOverrides and HttpClient.
 import 'package:flutter_rme/global_state.dart';
@@ -104,7 +104,7 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
   final List<Widget> _pages = [
     const HomePage(),
     const CrmSearchPage(),
-    const PolarityMwPlotPage(),
+    // const PolarityMwPlotPage(),
     const InstructionsPage(),
   ];
 
@@ -134,10 +134,10 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
           // Defines the items (tabs) in the bottom navigation bar.
           BottomNavigationBarItem(icon: Icon(Icons.house), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart),
-            label: 'Polarity MW Plot',
-          ),
+          // BottomNavigationBarItem(
+          //   icon: Icon(Icons.bar_chart),
+          //   label: 'Polarity MW Plot',
+          // ),
           BottomNavigationBarItem(
             icon: Icon(Icons.info),
             label: 'Instructions',
