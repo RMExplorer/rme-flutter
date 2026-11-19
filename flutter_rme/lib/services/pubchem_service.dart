@@ -1,7 +1,16 @@
 import 'dart:convert';
-import 'package:flutter_rme/models/analyte.dart';
+// import 'package:flutter_rme/models/analyte.dart';
 import 'package:http/http.dart' as http;
 import '../models/pubchem_data.dart';
+
+/// Thrown when PubChem has no compound matching the identifier.
+class CompoundNotFoundException implements Exception {
+  final String identifier;
+  CompoundNotFoundException(this.identifier);
+
+  @override
+  String toString() => 'Could not find PubChem data for $identifier';
+}
 
 /// A service class for interacting with the PubChem PUG REST API.
 class PubChemService {
@@ -21,6 +30,8 @@ class PubChemService {
   /// Throws an [Exception] if fetching compound data fails at any stage.
   /// Returns a [Future] that resolves to a [PubChemData] object containing the compound's information.
   Future<PubChemData> getCompoundData(String identifier) async {
+    final originalIdentifier = identifier; // keep for error messages
+
     // Parse the identifier to work with pubchem by replacing special characters and formatting.
     identifier = identifier.replaceAll('Δ', 'delta');
     identifier = identifier.replaceAllMapped(RegExp(r'[⁰¹²³⁴⁵⁶⁷⁸⁹]'), (match) {
@@ -47,8 +58,16 @@ class PubChemService {
         Uri.parse('$_baseUrl/compound/name/$identifier/cids/JSON'),
       );
 
+      if (cidResponse.statusCode == 404) {
+        throw CompoundNotFoundException(originalIdentifier);
+      }
+
       final cidJson = jsonDecode(cidResponse.body);
-      final cid = cidJson['IdentifierList']['CID'][0];
+      final cidList = cidJson['IdentifierList']?['CID'] as List?;
+      if (cidList == null || cidList.isEmpty) {
+        throw CompoundNotFoundException(originalIdentifier);
+      }
+      final cid = cidList[0];
 
       // Get compound properties
       final propertiesResponse = await http.get(
@@ -102,21 +121,23 @@ class PubChemService {
         synonyms: synonyms.isNotEmpty ? synonyms : [identifier],
         imageUrl: '$_baseUrl/compound/cid/$cid/PNG',
       );
+    } on CompoundNotFoundException {
+      rethrow; // don't wrap this one
     } catch (e) {
       throw Exception('Failed to fetch compound data: $e');
     }
   }
 
-  /// Fetches PubChem data for a list of [Analyte] objects in parallel.
-  ///
-  /// This method iterates through the provided list of [analytes],
-  /// calls [getCompoundData] for each analyte's name, and waits for all
-  /// the asynchronous operations to complete using `Future.wait`.
-  ///
-  /// [analytes] A list of [Analyte] objects for which to fetch PubChem data.
-  /// Returns a [Future] that resolves to a [List] of [PubChemData] objects.
-  Future<List<PubChemData>> getPubChemData(List<Analyte> analytes) {
-    // Map each analyte to a Future<PubChemData>, then wait for them all to complete.
-    return Future.wait(analytes.map((a) => getCompoundData(a.name)));
-  }
+  // /// Fetches PubChem data for a list of [Analyte] objects in parallel.
+  // ///
+  // /// This method iterates through the provided list of [analytes],
+  // /// calls [getCompoundData] for each analyte's name, and waits for all
+  // /// the asynchronous operations to complete using `Future.wait`.
+  // ///
+  // /// [analytes] A list of [Analyte] objects for which to fetch PubChem data.
+  // /// Returns a [Future] that resolves to a [List] of [PubChemData] objects.
+  // Future<List<PubChemData>> getPubChemData(List<Analyte> analytes) {
+  //   // Map each analyte to a Future<PubChemData>, then wait for them all to complete.
+  //   return Future.wait(analytes.map((a) => getCompoundData(a.name)));
+  // }
 }

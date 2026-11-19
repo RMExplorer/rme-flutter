@@ -45,6 +45,19 @@ class _PropertiesPageState extends State<PropertiesPage> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
+            // Display a message if no data is available for the selected analyte.
+            if (snapshot.error is CompoundNotFoundException) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    'Could not find PubChem data for ${widget.selectedAnalyte}',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              );
+            }
             // Display an error message if data fetching fails.
             return Center(child: Text('Error: ${snapshot.error}'));
           } else if (!snapshot.hasData) {
