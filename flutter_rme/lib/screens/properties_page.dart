@@ -5,9 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 /// A StatefulWidget that displays detailed properties of a selected chemical analyte.
 ///
-/// This page fetches and presents information such as IUPAC name, molecular formula,
-/// molecular weight, SMILES, InChIKey, exact mass, TPSA, pKow, and a link to PubChem,
-/// for a given analyte.
+/// This page presents information such as IUPAC name, molecular formula, molecular weight, 
+/// SMILES, InChIKey, exact mass, TPSA, pKow, and a link to PubChem, for a given analyte.
 class PropertiesPage extends StatefulWidget {
   /// The name of the chemical analyte to display properties for.
   final String selectedAnalyte;
