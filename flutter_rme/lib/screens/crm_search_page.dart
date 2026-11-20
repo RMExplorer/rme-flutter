@@ -123,7 +123,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
 
   // New state variables for "Did you mean?" functionality
   String? _canonicalNameSuggestion;
-  String _lastSearchQuery = ''; // Store the last query to compare
+  // String _lastSearchQuery = ''; // Store the last query to compare
   bool _showDidYouMean = false;
 
   @override
@@ -207,13 +207,16 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _errorMessage = null;
       _selectedCrmId = null; // Clear previous selection
       _selectedDetail = null; // Clear previous detail
-      // _crmItems = []; // Explicitly clear items at the start
-      // _filteredCrmItems = []; // Clear filtered items as well
+      _crmItems = []; // Explicitly clear items at the start
+      _filteredCrmItems = []; // Clear filtered items as well
       // _allAnalytes = []; // Clear all analytes when starting a new search
+      _analyteCrms = {};
+      _selectedAnalyteName = null;
+      _expandedAnalytes.clear();
       _hasSearched = true; // Set to true after a search is initiated
       _canonicalNameSuggestion = null; // Clear previous suggestion
       _showDidYouMean = false; // Reset "Did you mean?" flag
-      _lastSearchQuery = query; // Store the current query
+      // _lastSearchQuery = query; // Store the current query
     });
 
     try {
@@ -291,16 +294,9 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       //   }
       // }
 
-      final alreadyLoaded = _crmItems.map((c) => c.id).toSet();
-
-      final Map<String, Map<String, CrmItem>> crmsByName = {
-        for (final e in _analyteCrms.entries)
-          e.key: {for (final c in e.value) c.id: c},
-      };
-
+      final Map<String, Map<String, CrmItem>> crmsByName = {};
       // Fetch details for all items to build the analyte -> CRMs map
       for (var item in combinedResults) {
-        if (alreadyLoaded.contains(item.id)) continue; // already in the map
         try {
           final detail = await _crmService.loadCrmDetail(item);
           for (var analyte in detail.analyteData ?? []) {
@@ -310,51 +306,43 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
             crmsByName.putIfAbsent(name, () => {})[item.id] = item;
           }
         } catch (detailError) {
-          debugPrint('Failed to load detail for CRM ${item.name}: $detailError');
+          debugPrint(
+            'Failed to load detail for CRM ${item.name}: $detailError',
+          );
         }
       }
 
       // Update state after all asynchronous operations are complete
       if (mounted) {
         setState(() {
-          // Merge by id so a CRM found by both searches appears once.
-          final mergedCrms = {
-            for (final c in _crmItems) c.id: c,
-            for (final c in combinedResults) c.id: c,
-          };
-          _crmItems = mergedCrms.values.toList()
-            ..sort((a, b) => a.name.compareTo(b.name));
-
-          // // Ensure _crmItems contains only unique CrmItem objects based on their ID
-          // _crmItems = _crmItems
-          //     .toSet()
-          //     .toList(); // Requires CrmItem to override == and hashCode
-          // _crmItems.sort(
-          //   (a, b) => a.name.compareTo(b.name),
-          // ); // Sort by name for display
+          _crmItems = combinedResults.toList();
+          // Ensure _crmItems contains only unique CrmItem objects based on their ID
+          _crmItems = _crmItems
+              .toSet()
+              .toList(); // Requires CrmItem to override == and hashCode
+          _crmItems.sort(
+            (a, b) => a.name.compareTo(b.name),
+          ); // Sort by name for display
           // _allAnalytes = tempAllAnalytes;
-
           _analyteCrms = {
             for (final e in crmsByName.entries)
               e.key: (e.value.values.toList()
                 ..sort((a, b) => a.name.compareTo(b.name))),
           };
-
-          // Union the terms so earlier analytes stay visible in the table.
-          _matchTerms = {..._matchTerms, ...matchTerms};
-          _exactTerms = {..._exactTerms, ...exactTerms};
-
+          _matchTerms = matchTerms;
+          _exactTerms = exactTerms;
           _filteredCrmItems = List.from(_crmItems); // Update filtered list
           _crmDropdownController.clear(); // Clear dropdown text after search
-          _searchController.clear();
 
-          if (combinedResults.isEmpty) {
-            _handleError(
-              pubChemResult != null
-                  ? 'No CRMs found matching "$query" or its synonyms.'
-                  : 'No results found for "$query".',
-              isWarning: true,
-            );
+          if (_crmItems.isEmpty) {
+            if (pubChemResult != null) {
+              _handleError(
+                'No CRMs found matching "$query" or its synonyms.',
+                isWarning: true,
+              );
+            } else {
+              _handleError('No results found for "$query".', isWarning: true);
+            }
           } else if (!foundAnyNrcResults && pubChemResult != null) {
             // This case means PubChem found something, but NRC didn't return any CRMs for any of the terms.
             _handleError(
@@ -570,19 +558,17 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
   /// It updates the search controller with the canonical name and triggers
   /// a re-filtering of the analytes table.
   void _onDidYouMeanTapped() {
-    final suggestion = _canonicalNameSuggestion;
-    if (suggestion == null) return;
-    setState(() {
-      _showDidYouMean = false; // Hide the suggestion after it's used
-      _matchTerms = {..._matchTerms}
-        ..remove(_lastSearchQuery)
-        ..add(suggestion); // Refilter the table
-      _selectedAnalyteName = null; // The selected row may no longer be listed
-      // _lastSearchQuery =
-      //     _canonicalNameSuggestion!; // Update last search query to apply the new filter
-    });
-    // The AllAnalytesTable will be rebuilt with this new initialSearchText
-    // when _selectedCrmId is null (meaning we're showing all analytes).
+    if (_canonicalNameSuggestion != null) {
+      setState(() {
+        _showDidYouMean = false; // Hide the suggestion after it's used
+        _matchTerms = {_canonicalNameSuggestion!}; // Re-filter the table
+        _selectedAnalyteName = null; // The selected row may no longer be listed
+        // _lastSearchQuery =
+        //     _canonicalNameSuggestion!; // Update last search query to apply the new filter
+      });
+      // The AllAnalytesTable will be rebuilt with this new initialSearchText
+      // when _selectedCrmId is null (meaning we're showing all analytes).
+    }
   }
   
   /// Filters the [_crmItems] list based on the search query.
