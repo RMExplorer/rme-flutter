@@ -123,7 +123,8 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
 
   // New state variables for "Did you mean?" functionality
   String? _canonicalNameSuggestion;
-  // String _lastSearchQuery = ''; // Store the last query to compare
+  // Store the last query so "Did you mean?" can swap only that query's term.
+  String _lastSearchQuery = '';
   bool _showDidYouMean = false;
 
   @override
@@ -200,6 +201,12 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
   ///
   /// [query]: The search term entered by the user.
   Future<void> _searchCrm(String query) async {
+    // Only carry over earlier results if a search has already run since the
+    // last reset. After a reset (or on first load), _crmItems holds the full
+    // initial list from _loadInitialData().
+    final List<CrmItem> previousSearchItems =
+        _hasSearched ? List<CrmItem>.from(_crmItems) : <CrmItem>[];
+
     setState(() {
       _isLoading = true;
       _isSearching = true; // Set to true when search starts
@@ -207,16 +214,18 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _errorMessage = null;
       _selectedCrmId = null; // Clear previous selection
       _selectedDetail = null; // Clear previous detail
-      _crmItems = []; // Explicitly clear items at the start
-      _filteredCrmItems = []; // Clear filtered items as well
+      // Results now ACCUMULATE across searches, so these are no longer cleared
+      // here. Use the reset button (_resetSearchPage) to start over.
+      // _crmItems = []; // Explicitly clear items at the start
+      // _filteredCrmItems = []; // Clear filtered items as well
       // _allAnalytes = []; // Clear all analytes when starting a new search
-      _analyteCrms = {};
-      _selectedAnalyteName = null;
-      _expandedAnalytes.clear();
+      // _analyteCrms = {};
+      // _selectedAnalyteName = null;
+      // _expandedAnalytes.clear();
       _hasSearched = true; // Set to true after a search is initiated
       _canonicalNameSuggestion = null; // Clear previous suggestion
       _showDidYouMean = false; // Reset "Did you mean?" flag
-      // _lastSearchQuery = query; // Store the current query
+      _lastSearchQuery = query; // Store the current query
     });
 
     try {
@@ -294,9 +303,26 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       //   }
       // }
 
-      final Map<String, Map<String, CrmItem>> crmsByName = {};
-      // Fetch details for all items to build the analyte -> CRMs map
+      // CRMs from previous searches already have their analytes in
+      // _analyteCrms, so only CRMs new to this search need a detail fetch.
+      // Don't derive this from _crmItems: _loadInitialData() also fills it with
+      // the full CRM list, which made every result look "already loaded" after
+      // a reset. The analyte map is the source of truth for what's been fetched.
+      // final alreadyLoaded = _crmItems.map((c) => c.id).toSet();
+      final alreadyLoaded = <String>{
+        for (final crms in _analyteCrms.values)
+          for (final c in crms) c.id,
+      };
+
+      // final Map<String, Map<String, CrmItem>> crmsByName = {};
+      // Seed with the existing results instead of starting empty.
+      final Map<String, Map<String, CrmItem>> crmsByName = {
+        for (final e in _analyteCrms.entries)
+          e.key: {for (final c in e.value) c.id: c},
+      };
+      // Fetch details for all NEW items to extend the analyte -> CRMs map
       for (var item in combinedResults) {
+        if (alreadyLoaded.contains(item.id)) continue; // already in the map
         try {
           final detail = await _crmService.loadCrmDetail(item);
           for (var analyte in detail.analyteData ?? []) {
@@ -315,11 +341,18 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       // Update state after all asynchronous operations are complete
       if (mounted) {
         setState(() {
-          _crmItems = combinedResults.toList();
-          // Ensure _crmItems contains only unique CrmItem objects based on their ID
-          _crmItems = _crmItems
-              .toSet()
-              .toList(); // Requires CrmItem to override == and hashCode
+          // _crmItems = combinedResults.toList();
+          // // Ensure _crmItems contains only unique CrmItem objects based on their ID
+          // _crmItems = _crmItems
+          //     .toSet()
+          //     .toList(); // Requires CrmItem to override == and hashCode
+          // Merge with previous results, de-duplicated by CRM id.
+          final mergedCrms = {
+            // for (final c in _crmItems) c.id: c,
+            for (final c in previousSearchItems) c.id: c,
+            for (final c in combinedResults) c.id: c,
+          };
+          _crmItems = mergedCrms.values.toList();
           _crmItems.sort(
             (a, b) => a.name.compareTo(b.name),
           ); // Sort by name for display
@@ -329,12 +362,19 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
               e.key: (e.value.values.toList()
                 ..sort((a, b) => a.name.compareTo(b.name))),
           };
-          _matchTerms = matchTerms;
-          _exactTerms = exactTerms;
+          // Union the terms so earlier analytes stay visible in the table.
+          // _matchTerms = matchTerms;
+          // _exactTerms = exactTerms;
+          _matchTerms = {..._matchTerms, ...matchTerms};
+          _exactTerms = {..._exactTerms, ...exactTerms};
           _filteredCrmItems = List.from(_crmItems); // Update filtered list
           _crmDropdownController.clear(); // Clear dropdown text after search
+          _searchController.clear(); // Ready for the next analyte
 
-          if (_crmItems.isEmpty) {
+          // Check THIS search's results, not the accumulated list, so a failed
+          // second search still shows a warning.
+          // if (_crmItems.isEmpty) {
+          if (combinedResults.isEmpty) {
             if (pubChemResult != null) {
               _handleError(
                 'No CRMs found matching "$query" or its synonyms.',
@@ -561,7 +601,12 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
     if (_canonicalNameSuggestion != null) {
       setState(() {
         _showDidYouMean = false; // Hide the suggestion after it's used
-        _matchTerms = {_canonicalNameSuggestion!}; // Re-filter the table
+        // Previously this replaced ALL terms, which would wipe earlier searches:
+        // _matchTerms = {_canonicalNameSuggestion!}; // Re-filter the table
+        // Now only the latest query's term is swapped for the canonical name.
+        _matchTerms = {..._matchTerms}
+          ..remove(_lastSearchQuery)
+          ..add(_canonicalNameSuggestion!);
         _selectedAnalyteName = null; // The selected row may no longer be listed
         // _lastSearchQuery =
         //     _canonicalNameSuggestion!; // Update last search query to apply the new filter
