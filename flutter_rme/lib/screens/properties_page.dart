@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_rme/models/pubchem_data.dart';
 import 'package:flutter_rme/services/pubchem_service.dart';
+import 'package:flutter_rme/widgets/similar_compounds_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// A StatefulWidget that displays detailed properties of a selected chemical analyte.
@@ -11,8 +12,17 @@ class PropertiesPage extends StatefulWidget {
   /// The name of the chemical analyte to display properties for.
   final String selectedAnalyte;
 
-  /// Creates a [PropertiesPage] with the given [selectedAnalyte].
-  const PropertiesPage({super.key, required this.selectedAnalyte});
+  /// InChIKeys of compounds already in the search results (to disable them
+  /// in the similar-compounds dropdown).
+  final Set<String> existingInchiKeys;
+
+  /// Creates a [PropertiesPage] with the given [selectedAnalyte]
+  /// and a blank set of [existingInchiKeys].
+  const PropertiesPage({
+    super.key,
+    required this.selectedAnalyte,
+    this.existingInchiKeys = const {}
+  });
 
   @override
   _PropertiesPageState createState() => _PropertiesPageState();
@@ -188,6 +198,13 @@ class _PropertiesPageState extends State<PropertiesPage> {
                         ),
                       ],
                     ),
+                  ),
+                  SimilarCompoundsPicker(
+                    cid: (data.cid as num).toInt(),
+                    inchiKey: data.inchiKey,
+                    existingInchiKeys: widget.existingInchiKeys,
+                    // Hand the chosen name back to the page that opened this one.
+                    onAdd: (compound) => Navigator.pop(context, compound.name),
                   ),
               ],
             ),
