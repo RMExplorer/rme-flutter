@@ -127,6 +127,10 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
   String _lastSearchQuery = '';
   bool _showDidYouMean = false;
 
+  /// InChIKeys of compounds already searched (for disabling them in the
+  /// similar-compounds dropdown on the properties page).
+  final Set<String> _searchedInchiKeys = {};
+
   @override
   void initState() {
     super.initState();
@@ -237,6 +241,9 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
         // Attempt to get PubChem data for the query
         pubChemResult = await _pubChemService.getCompoundData(query);
         actualCanonicalName = pubChemResult.name; // Get the canonical name
+        if (pubChemResult.inchiKey.isNotEmpty) {
+          _searchedInchiKeys.add(pubChemResult.inchiKey); // Add inchikey
+        }
         searchTerms.add(actualCanonicalName); // Add canonical name
         searchTerms.addAll(pubChemResult.synonyms); // Add synonyms
       } catch (e) {
@@ -467,16 +474,22 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
   }
 
   /// Opens the properties page for the highlighted analyte.
-  Future<void> _navigateToPropertiesPage() async {
-    final name = _selectedAnalyteName;
-    if (name == null) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => PropertiesPage(selectedAnalyte: name),
+Future<void> _navigateToPropertiesPage() async {
+  final name = _selectedAnalyteName;
+  if (name == null) return;
+  final addedName = await Navigator.push<String>(
+    context,
+    MaterialPageRoute(
+      builder: (context) => PropertiesPage(
+        selectedAnalyte: name,
+        existingInchiKeys: _searchedInchiKeys,
       ),
-    );
+    ),
+  );
+  if (addedName != null && mounted) {
+    _searchCrm(addedName); // accumulates into the existing results
   }
+}
 
   // /// Navigates to the [PropertiesPage] for the first selected analyte.
   // ///
@@ -589,6 +602,7 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
       _expandedAnalytes.clear();
       _canonicalNameSuggestion = null;
       _showDidYouMean = false;
+      _searchedInchiKeys.clear();
     });
     // Now, call the method to reload the initial CRM data
     _loadInitialData();
