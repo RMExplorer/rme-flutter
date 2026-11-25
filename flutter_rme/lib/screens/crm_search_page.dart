@@ -147,6 +147,8 @@ class _CrmSearchPageState extends State<CrmSearchPage> {
 
   @override
   void dispose() {
+    _searchController.dispose();
+    _crmDropdownController.dispose();
     _crmDropdownFocusNode.dispose();
     super.dispose();
   }
@@ -666,32 +668,34 @@ Future<void> _navigateToPropertiesPage() async {
         // The list of filtered items is only shown when the text field has focus
         // and the list is not empty.
         if (_isDropdownFocused && _filteredCrmItems.isNotEmpty)
-          Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey),
-              borderRadius: BorderRadius.circular(4.0),
-            ),
-            constraints: const BoxConstraints(maxHeight: 200),
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: _filteredCrmItems.length,
-              itemBuilder: (context, index) {
-                final item = _filteredCrmItems[index];
-                return ListTile(
-                  title: Text(item.name),
-                  onTap: () {
-                    // When an item is tapped, update the selected CRM,
-                    // load its details, and clear the filter.
-                    setState(() {
-                      _selectedCrmId = item.id;
-                      _crmDropdownController.text = item.name;
-                      _filteredCrmItems = []; // Hide the list after selection
-                    });
-                    _loadCrmDetail(item.id);
-                    _crmDropdownFocusNode.unfocus(); // Unfocus the text field to hide the list
-                  },
-                );
-              },
+          TextFieldTapRegion(
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(4.0),
+              ),
+              constraints: const BoxConstraints(maxHeight: 200),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _filteredCrmItems.length,
+                itemBuilder: (context, index) {
+                  final item = _filteredCrmItems[index];
+                  return ListTile(
+                    title: Text(item.name),
+                    onTap: () {
+                      // When an item is tapped, update the selected CRM,
+                      // load its details, and clear the filter.
+                      setState(() {
+                        _selectedCrmId = item.id;
+                        _crmDropdownController.text = item.name;
+                        _filteredCrmItems = []; // Hide the list after selection
+                      });
+                      _loadCrmDetail(item.id);
+                      _crmDropdownFocusNode.unfocus(); // Unfocus the text field to hide the list
+                    },
+                  );
+                },
+              ),
             ),
           ),
       ],
