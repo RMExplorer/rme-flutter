@@ -166,8 +166,8 @@ class _AnimatedLoaderState extends State<AnimatedLoader> with SingleTickerProvid
                           stops: const [0.1, 0.3, 0.7, 0.9],
                           colors: [
                             bgColor!,
-                            bgColor.withOpacity(0.0),
-                            bgColor.withOpacity(0.0),
+                            bgColor.withValues(alpha: 0.0),
+                            bgColor.withValues(alpha: 0.0),
                             bgColor,
                           ],
                         ),

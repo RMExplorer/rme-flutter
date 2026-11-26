@@ -3,7 +3,7 @@ import 'package:flutter_rme/global_state.dart'; // Import GlobalState
 import 'package:provider/provider.dart'; // Import provider
 import '../ui_elements/animated_gradient_widget.dart'; // Ensure this path is correct
 
-/// A StatelessWidget that represents the home page of the Reference Material Explorer application.
+/// A StatefulWidget that represents the home page of the Reference Material Explorer application.
 ///
 /// This page provides an introduction to the application, its purpose,
 /// and highlights its adherence to FAIR data principles. It displays
@@ -87,7 +87,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           
                           /// A detailed description of the Reference Material Explorer application.
                           Text(
-                            'This is an application built upon the NRC Digital Repository external Application Programming Interfaces (APIs) that allows users to visualise, analyse and display useful information about the Reference Materials produced by the National Research Council of Canada. This application relies upon and complies with FAIR data principles and showcases the use of machine-readable information from digital certificates.',
+                            'This is an application built upon the NRC Digital Repository external Application Programming Interfaces (APIs) that allows users to explore useful information about the Reference Materials produced by the National Research Council of Canada. This application relies upon and complies with FAIR data principles and showcases the use of machine-readable information from digital certificates.',
                             textAlign: TextAlign.justify, // Justifies the paragraph text
                             style: TextStyle(
                               fontSize: 16,

@@ -1,19 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_rme/models/pubchem_data.dart';
 import 'package:flutter_rme/services/pubchem_service.dart';
+import 'package:flutter_rme/widgets/similar_compounds_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// A StatefulWidget that displays detailed properties of a selected chemical analyte.
 ///
-/// This page fetches and presents information such as IUPAC name, molecular formula,
-/// molecular weight, SMILES, InChIKey, exact mass, TPSA, pKow, and a link to PubChem,
-/// for a given analyte.
+/// This page presents information such as IUPAC name, molecular formula, molecular weight, 
+/// SMILES, InChIKey, exact mass, TPSA, pKow, and a link to PubChem, for a given analyte.
 class PropertiesPage extends StatefulWidget {
   /// The name of the chemical analyte to display properties for.
   final String selectedAnalyte;
 
-  /// Creates a [PropertiesPage] with the given [selectedAnalyte].
-  const PropertiesPage({super.key, required this.selectedAnalyte});
+  /// InChIKeys of compounds already in the search results (to disable them
+  /// in the similar-compounds dropdown).
+  final Set<String> existingInchiKeys;
+
+  /// Creates a [PropertiesPage] with the given [selectedAnalyte]
+  /// and a blank set of [existingInchiKeys].
+  const PropertiesPage({
+    super.key,
+    required this.selectedAnalyte,
+    this.existingInchiKeys = const {}
+  });
 
   @override
   _PropertiesPageState createState() => _PropertiesPageState();
@@ -45,6 +54,19 @@ class _PropertiesPageState extends State<PropertiesPage> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
+            // Display a message if no data is available for the selected analyte.
+            if (snapshot.error is CompoundNotFoundException) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    'Could not find PubChem data for ${widget.selectedAnalyte}',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              );
+            }
             // Display an error message if data fetching fails.
             return Center(child: Text('Error: ${snapshot.error}'));
           } else if (!snapshot.hasData) {
@@ -176,6 +198,13 @@ class _PropertiesPageState extends State<PropertiesPage> {
                         ),
                       ],
                     ),
+                  ),
+                  SimilarCompoundsPicker(
+                    cid: (data.cid as num).toInt(),
+                    inchiKey: data.inchiKey,
+                    existingInchiKeys: widget.existingInchiKeys,
+                    // Hand the chosen name back to the page that opened this one.
+                    onAdd: (compound) => Navigator.pop(context, compound.name),
                   ),
               ],
             ),

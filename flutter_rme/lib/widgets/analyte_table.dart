@@ -4,24 +4,24 @@ import '../models/analyte.dart';
 /// A StatefulWidget that displays a sortable and filterable table of [Analyte] objects.
 ///
 /// This widget allows users to view a list of analytes, sort them by different
-/// columns, filter them using a search bar, and select multiple analytes.
+/// columns, and filter them using a search bar.
 class AnalyteTable extends StatefulWidget {
   /// The list of [Analyte] objects to be displayed in the table.
   final List<Analyte>? analytes;
 
-  /// A callback function that is invoked when the selection of analytes changes.
-  /// It provides the updated list of selected [Analyte] objects.
-  final void Function(List<Analyte>)? onSelectionChanged;
+  // /// A callback function that is invoked when the selection of analytes changes.
+  // /// It provides the updated list of selected [Analyte] objects.
+  // final void Function(List<Analyte>)? onSelectionChanged;
 
   /// Creates an [AnalyteTable].
   ///
   /// The [key] is used to control how one widget replaces another in the widget tree.
   /// The [analytes] parameter is required and represents the data to be displayed.
-  /// The [onSelectionChanged] is an optional callback.
+  // /// The [onSelectionChanged] is an optional callback.
   const AnalyteTable({
     super.key,
     required this.analytes,
-    this.onSelectionChanged,
+    // this.onSelectionChanged,
   });
 
   @override
@@ -45,8 +45,8 @@ class _AnalyteTableState extends State<AnalyteTable> {
   /// Controller for the search text field.
   final TextEditingController _searchController = TextEditingController();
 
-  /// The list of currently selected analytes.
-  final List<Analyte> _selectedAnalytes = [];
+  // /// The list of currently selected analytes.
+  // final List<Analyte> _selectedAnalytes = [];
 
   @override
   void initState() {
@@ -114,31 +114,31 @@ class _AnalyteTableState extends State<AnalyteTable> {
     }).toList();
   }
 
-  /// Toggles the selection status of an [analyte].
-  ///
-  /// If the analyte is already selected, it is removed from [_selectedAnalytes].
-  /// Otherwise, it is added. After modifying the selection, the [onSelectionChanged]
-  /// callback is invoked with the updated list of selected analytes.
-  ///
-  /// [analyte] The [Analyte] object whose selection status is to be toggled.
-  void _toggleSelection(Analyte analyte) {
-    setState(() {
-      if (_selectedAnalytes.contains(analyte)) {
-        _selectedAnalytes.remove(analyte);
-      } else {
-        _selectedAnalytes.add(analyte);
-      }
-      widget.onSelectionChanged?.call(List.from(_selectedAnalytes));
-    });
-  }
+  // /// Toggles the selection status of an [analyte].
+  // ///
+  // /// If the analyte is already selected, it is removed from [_selectedAnalytes].
+  // /// Otherwise, it is added. After modifying the selection, the [onSelectionChanged]
+  // /// callback is invoked with the updated list of selected analytes.
+  // ///
+  // /// [analyte] The [Analyte] object whose selection status is to be toggled.
+  // void _toggleSelection(Analyte analyte) {
+  //   setState(() {
+  //     if (_selectedAnalytes.contains(analyte)) {
+  //       _selectedAnalytes.remove(analyte);
+  //     } else {
+  //       _selectedAnalytes.add(analyte);
+  //     }
+  //     widget.onSelectionChanged?.call(List.from(_selectedAnalytes));
+  //   });
+  // }
 
-  /// Checks if an [analyte] is currently selected.
-  ///
-  /// [analyte] The [Analyte] object to check.
-  /// Returns `true` if the analyte is selected, `false` otherwise.
-  bool _isSelected(Analyte analyte) {
-    return _selectedAnalytes.contains(analyte);
-  }
+  // /// Checks if an [analyte] is currently selected.
+  // ///
+  // /// [analyte] The [Analyte] object to check.
+  // /// Returns `true` if the analyte is selected, `false` otherwise.
+  // bool _isSelected(Analyte analyte) {
+  //   return _selectedAnalytes.contains(analyte);
+  // }
 
   /// A helper function to parse the value string into a double for sorting.
   /// It removes '<' and '+' signs before attempting to parse.
@@ -219,10 +219,10 @@ class _AnalyteTableState extends State<AnalyteTable> {
               ),
             ],
             rows: _filteredAnalytes.map((analyte) {
-              final isSelected = _isSelected(analyte);
+              // final isSelected = _isSelected(analyte);
               return DataRow(
-                selected: isSelected,
-                onSelectChanged: (_) => _toggleSelection(analyte),
+                // selected: isSelected,
+                // onSelectChanged: (_) => _toggleSelection(analyte),
                 cells: [
                   DataCell(Text(analyte.name)),
                   DataCell(Text(analyte.quantity)),
@@ -235,25 +235,25 @@ class _AnalyteTableState extends State<AnalyteTable> {
             }).toList(),
           ),
         ),
-        const SizedBox(height: 16),
-        // Displays the number of selected items.
-        Text(
-          'Selected: ${_selectedAnalytes.length} item(s)',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        // Displays chips for selected analytes, allowing them to be deselected.
-        _selectedAnalytes.isNotEmpty
-            ? Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: _selectedAnalytes.map((analyte) {
-                  return Chip(
-                    label: Text(analyte.name),
-                    onDeleted: () => _toggleSelection(analyte),
-                  );
-                }).toList(),
-              )
-            : const SizedBox.shrink(),
+        // const SizedBox(height: 16),
+        // // Displays the number of selected items.
+        // Text(
+        //   'Selected: ${_selectedAnalytes.length} item(s)',
+        //   style: const TextStyle(fontWeight: FontWeight.bold),
+        // ),
+        // // Displays chips for selected analytes, allowing them to be deselected.
+        // _selectedAnalytes.isNotEmpty
+        //     ? Wrap(
+        //         spacing: 8,
+        //         runSpacing: 4,
+        //         children: _selectedAnalytes.map((analyte) {
+        //           return Chip(
+        //             label: Text(analyte.name),
+        //             onDeleted: () => _toggleSelection(analyte),
+        //           );
+        //         }).toList(),
+        //       )
+        //     : const SizedBox.shrink(),
       ],
     );
   }
